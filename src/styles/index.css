@@ -1,0 +1,9 @@
+@import "@fontsource/montserrat-alternates";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: "Montserrat Alternates", sans-serif;
+}

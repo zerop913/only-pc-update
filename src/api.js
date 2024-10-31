@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api";
+export const API_URL = "http://localhost:3000/api";
 
 class CacheManager {
   constructor(maxSize = 200, ttl = 10 * 60 * 1000) {
@@ -50,17 +50,16 @@ class CacheManager {
 }
 
 class RateLimiter {
-  constructor(maxRequests = 5, timeWindow = 1000) {
+  constructor(maxRequests = 3, timeWindow = 1000) {
     this.requests = new Map();
     this.maxRequests = maxRequests;
     this.timeWindow = timeWindow;
+    this.queue = new Map();
   }
 
   async checkLimit(key) {
     const now = Date.now();
     const timestamps = this.requests.get(key) || [];
-
-    // Удаляем старые метки времени
     const validTimestamps = timestamps.filter(
       (time) => now - time < this.timeWindow
     );
@@ -68,7 +67,22 @@ class RateLimiter {
     if (validTimestamps.length >= this.maxRequests) {
       const oldestRequest = validTimestamps[0];
       const waitTime = this.timeWindow - (now - oldestRequest);
-      await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+      await new Promise((resolve) => {
+        if (!this.queue.has(key)) {
+          this.queue.set(key, []);
+        }
+        this.queue.get(key).push(resolve);
+        setTimeout(() => {
+          const resolvers = this.queue.get(key) || [];
+          const resolver = resolvers.shift();
+          if (resolver) resolver();
+          if (resolvers.length === 0) {
+            this.queue.delete(key);
+          }
+        }, waitTime);
+      });
+
       return this.checkLimit(key);
     }
 
@@ -76,17 +90,29 @@ class RateLimiter {
     this.requests.set(key, validTimestamps);
     return true;
   }
+
+  clear() {
+    this.requests.clear();
+    this.queue.clear();
+  }
 }
 
-const cache = new CacheManager(200, 10 * 60 * 1000); // Увеличиваем размер кэша и TTL до 10 минут
-const rateLimiter = new RateLimiter(5, 1000); // Максимум 5 запросов в секунду
+const cache = new CacheManager(200, 10 * 60 * 1000);
+const rateLimiter = new RateLimiter(3, 1000);
 
+// Увеличиваем timeout и количество попыток
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
-  retry: 3,
-  retryDelay: 2000, // Увеличиваем задержку между попытками
+  timeout: 30000, // Увеличили timeout до 30 секунд
+  retry: 5, // Увеличили количество попыток до 5
+  retryDelay: 1000, // Начальная задержка 1 секунда
 });
+
+// Улучшенная функция задержки с экспоненциальным увеличением
+const delay = (retryCount) => {
+  const baseDelay = 1000;
+  return Math.min(baseDelay * Math.pow(2, retryCount - 1), 10000);
+};
 
 api.interceptors.request.use(async (config) => {
   const requestKey = `${config.method}_${config.url}`;
@@ -94,30 +120,53 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-api.interceptors.response.use(null, async (error) => {
-  const config = error.config;
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config;
 
-  if (!config || !config.retry || config.retryCount >= config.retry) {
+    // Добавляем поле для отслеживания попыток, если его нет
+    if (!config.retryCount) {
+      config.retryCount = 0;
+    }
+
+    // Проверяем, можно ли повторить запрос
+    const shouldRetry =
+      config.retryCount < config.retry &&
+      (!error.response || // Нет ответа от сервера
+        error.response.status >= 500 || // Серверная ошибка
+        error.response.status === 429 || // Rate limiting
+        error.code === "ECONNABORTED" || // Timeout
+        error.code === "ERR_NETWORK"); // Сетевая ошибка
+
+    if (shouldRetry) {
+      config.retryCount += 1;
+
+      // Экспоненциальная задержка перед повторным запросом
+      const retryDelay =
+        error.response?.status === 429
+          ? parseInt(error.response.headers["retry-after"]) * 1000 ||
+            delay(config.retryCount)
+          : delay(config.retryCount);
+
+      // Очищаем очередь запросов при 429 ошибке
+      if (error.response?.status === 429) {
+        rateLimiter.clear();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+      // Логируем повторную попытку
+      console.log(`Retry attempt ${config.retryCount} for ${config.url}`);
+
+      return api(config);
+    }
+
     return Promise.reject(error);
   }
+);
 
-  // Экспоненциальная задержка для повторных попыток
-  const retryCount = (config.retryCount || 0) + 1;
-  config.retryCount = retryCount;
-  const delay = config.retryDelay * Math.pow(2, retryCount - 1);
-
-  // Если ошибка 429, увеличиваем задержку
-  if (error.response?.status === 429) {
-    const retryAfter = error.response.headers["retry-after"];
-    const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay * 2;
-    await new Promise((resolve) => setTimeout(resolve, waitTime));
-  } else {
-    await new Promise((resolve) => setTimeout(resolve, delay));
-  }
-
-  return api(config);
-});
-
+// Остальной код без изменений...
 const getCacheKey = (url, params) => {
   return `${url}?${new URLSearchParams(params).toString()}`;
 };
@@ -140,6 +189,7 @@ const queueRequest = async (key, requestPromise) => {
   }
 };
 
+// Улучшенная функция кэширования с обработкой ошибок
 const cacheRequest = async (url, params = {}) => {
   const cacheKey = getCacheKey(url, params);
   const cachedData = cache.get(cacheKey);
@@ -151,42 +201,74 @@ const cacheRequest = async (url, params = {}) => {
   return queueRequest(cacheKey, async () => {
     try {
       const response = await api.get(url, { params });
-      cache.set(cacheKey, response.data);
-      return response.data;
+      if (response.data) {
+        cache.set(cacheKey, response.data);
+        return response.data;
+      }
+      throw new Error("Empty response data");
     } catch (error) {
-      console.error(`Ошибка запроса к ${url}:`, {
+      console.error(`Request error for ${url}:`, {
         params,
         status: error.response?.status,
         message: error.message,
       });
+
+      // Возвращаем кэшированные данные, если они есть, даже если они устарели
+      const staleData = cache.get(cacheKey);
+      if (staleData) {
+        console.log("Returning stale cached data while fetching failed");
+        return staleData;
+      }
+
       throw error;
     }
   });
 };
 
+// Модифицированная функция предзагрузки
 async function preloadData() {
-  try {
-    // Получаем категории
-    const categories = await fetchCategories();
+  const maxRetries = 3;
+  let retryCount = 0;
 
-    // Получаем товары для каждой категории
-    for (const category of categories) {
-      await fetchProducts(category.short_name);
+  while (retryCount < maxRetries) {
+    try {
+      const categories = await fetchCategories();
+
+      // Загружаем товары для каждой категории параллельно
+      await Promise.allSettled(
+        categories.map((category) => fetchProducts(category.short_name))
+      );
+
+      console.log("Data successfully preloaded");
+      return;
+    } catch (error) {
+      retryCount++;
+      console.error(`Preload attempt ${retryCount} failed:`, error);
+
+      if (retryCount < maxRetries) {
+        const waitTime = delay(retryCount);
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+      }
     }
-
-    console.log("Данные успешно загружены и сохранены в кэше");
-  } catch (error) {
-    console.error("Ошибка при предварительной загрузке данных:", error);
   }
 }
 
-window.addEventListener("load", preloadData);
+// Улучшенная инициализация предзагрузки
+const initPreload = () => {
+  if (document.readyState === "complete") {
+    preloadData();
+  } else {
+    window.addEventListener("load", preloadData);
+  }
+};
+
+initPreload();
 
 export const fetchCategories = async () => {
   try {
     return await cacheRequest(`${API_URL}/categories`);
   } catch (error) {
-    console.error("Ошибка при получении категорий:", error);
+    console.error("Error fetching categories:", error);
     throw error;
   }
 };
@@ -227,14 +309,14 @@ export const fetchProducts = async (
 
     return { products: [], totalPages: 0, currentPage: 1 };
   } catch (error) {
-    console.error("Ошибка при запросе продуктов:", error);
+    console.error("Error fetching products:", error);
     throw error;
   }
 };
 
 export const fetchProductBySlug = async (categoryPath, slug) => {
   if (!categoryPath || !slug) {
-    throw new Error("Отсутствует категория или slug товара");
+    throw new Error("Missing category or product slug");
   }
 
   const cacheKey = `product_${categoryPath}_${slug}`;
@@ -273,14 +355,18 @@ export const fetchProductBySlug = async (categoryPath, slug) => {
       cache.set(cacheKey, productData);
       return productData;
     } catch (error) {
-      console.error("Ошибка при получении информации о товаре:", {
+      console.error("Error fetching product details:", {
         categoryPath,
         slug,
         error: error.message,
       });
-      throw new Error(
-        "Ошибка при загрузке товара. Пожалуйста, попробуйте позже."
-      );
+
+      const staleData = cache.get(cacheKey);
+      if (staleData) {
+        return staleData;
+      }
+
+      throw new Error("Failed to load product. Please try again later.");
     }
   });
 };

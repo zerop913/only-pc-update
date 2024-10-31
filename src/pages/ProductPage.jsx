@@ -7,6 +7,7 @@ import Header from "../components/Header/Header";
 import ProductInfo from "../components/Products/ProductInfo";
 import ProductCharacteristics from "../components/Products/ProductCharacteristics";
 import Breadcrumbs from "../components/UI/Breadcrumbs";
+import useSessionStorage from "../hooks/useSessionStorage";
 
 const ProductPage = ({
   product: initialProduct,
@@ -20,6 +21,11 @@ const ProductPage = ({
   const [loading, setLoading] = useState(!initialProduct);
   const [error, setError] = useState(null);
   const characteristicsRef = useRef(null);
+  const [navigationInProgress, setNavigationInProgress] = useSessionStorage(
+    "navigationInProgress",
+    false
+  );
+  const navigationTimeoutRef = useRef(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -60,18 +66,38 @@ const ProductPage = ({
     };
 
     loadData();
-  }, [categories, childCategories, slug, initialProduct, initialCategoryData]);
+
+    return () => {
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+      setNavigationInProgress(false);
+    };
+  }, [
+    categories,
+    childCategories,
+    slug,
+    initialProduct,
+    initialCategoryData,
+    setNavigationInProgress,
+  ]);
 
   const handleBreadcrumbClick = (e, path) => {
     e.preventDefault();
+    setNavigationInProgress(true);
 
-    // Получаем сохраненный путь с номером страницы
     const lastPath =
-      localStorage.getItem(`lastPath_${path.replace(/^\//, "")}`) ||
+      sessionStorage.getItem(`lastPath_${path.replace(/^\//, "")}`) ||
       `${path}#page=1`;
 
-    navigate(lastPath, { replace: true });
+    navigationTimeoutRef.current = setTimeout(() => {
+      navigate(lastPath, { replace: true });
+    }, 50);
   };
+
+  if (navigationInProgress) {
+    return null;
+  }
 
   if (loading) {
     return (

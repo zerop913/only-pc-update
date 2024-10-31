@@ -10,10 +10,9 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Добавляем middleware для CORS
 app.use(
   cors({
-    origin: "http://localhost:5173", // Замените на URL вашего клиентского приложения
+    origin: "http://localhost:5173",
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -21,15 +20,13 @@ app.use(
 
 app.use(express.json());
 
-// Добавляем ограничение на количество запросов
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 минут
-  max: 100, // ограничить каждый IP до 100 запросов за windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
 });
 
 app.use(limiter);
 
-// Изменяем порядок маршрутов
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);

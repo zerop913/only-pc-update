@@ -32,6 +32,13 @@ const ProductList = ({
   const location = useLocation();
   const navigate = useNavigate();
 
+  const getCategoryPath = useCallback(() => {
+    if (!selectedCategory) return "";
+    return selectedSubcategory
+      ? `${selectedCategory.short_name}/${selectedSubcategory.short_name}`
+      : selectedCategory.short_name;
+  }, [selectedCategory, selectedSubcategory]);
+
   const getCategoryKey = useCallback(() => {
     if (!selectedCategory) return null;
     return selectedSubcategory
@@ -78,8 +85,7 @@ const ProductList = ({
       );
     }
 
-    // Сохраняем полный путь с номером страницы в localStorage
-    localStorage.setItem(
+    sessionStorage.setItem(
       `lastPath_${categoryPath}`,
       `/${categoryPath}${currentHash}`
     );
@@ -278,12 +284,12 @@ const ProductList = ({
     return 0;
   });
 
-  const getCategoryPath = () => {
-    if (selectedSubcategory) {
-      return `${selectedCategory.short_name}/${selectedSubcategory.short_name}`;
-    }
-    return selectedCategory.short_name;
-  };
+  // const getCategoryPath = () => {
+  //   if (selectedSubcategory) {
+  //     return `${selectedCategory.short_name}/${selectedSubcategory.short_name}`;
+  //   }
+  //   return selectedCategory.short_name;
+  // };
 
   return (
     <div>
@@ -292,6 +298,7 @@ const ProductList = ({
         setViewMode={setViewMode}
         sortBy={sortBy}
         setSortBy={setSortBy}
+        categoryPath={getCategoryPath()}
       />
       <AnimatePresence mode="wait" key={viewMode}>
         <motion.div

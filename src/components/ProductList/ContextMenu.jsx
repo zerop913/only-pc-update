@@ -6,11 +6,58 @@ import {
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import FilterMenu from "./FilterMenu";
+import { fetchCategories } from "../../api";
 
-const ContextMenu = ({ viewMode, setViewMode, sortBy, setSortBy }) => {
+const ContextMenu = ({
+  viewMode,
+  setViewMode,
+  sortBy,
+  setSortBy,
+  categoryPath,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
+  const [categories, setCategories] = useState([]);
+
+  // Загрузка категорий
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await fetchCategories();
+        setCategories(data);
+      } catch (error) {
+        console.error("Error loading categories:", error);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  // Обновление выбранной категории при изменении categoryPath
+  useEffect(() => {
+    if (categoryPath && categories.length > 0) {
+      const pathParts = categoryPath.split("/");
+      const mainCategory = categories.find(
+        (cat) => cat.short_name === pathParts[0]
+      );
+
+      setSelectedCategory(mainCategory || null);
+
+      if (mainCategory && pathParts[1]) {
+        const subCategory = mainCategory.children?.find(
+          (sub) => sub.short_name === pathParts[1]
+        );
+        setSelectedSubcategory(subCategory || null);
+      } else {
+        setSelectedSubcategory(null);
+      }
+    } else {
+      setSelectedCategory(null);
+      setSelectedSubcategory(null);
+    }
+  }, [categoryPath, categories]);
 
   const toggleDropdown = () => setIsOpen(!isOpen);
   const toggleFilter = () => setIsFilterOpen(!isFilterOpen);
@@ -32,6 +79,12 @@ const ContextMenu = ({ viewMode, setViewMode, sortBy, setSortBy }) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const handleApplyFilters = (filters) => {
+    console.log("Applied filters:", filters);
+    // Здесь добавьте логику применения фильтров
+    setIsFilterOpen(false);
+  };
 
   const sortOptions = [
     { value: "name", label: "По названию" },
@@ -109,7 +162,12 @@ const ContextMenu = ({ viewMode, setViewMode, sortBy, setSortBy }) => {
           </button>
         </div>
       </div>
-      <FilterMenu isOpen={isFilterOpen} />
+      <FilterMenu
+        isOpen={isFilterOpen}
+        selectedCategory={selectedCategory}
+        selectedSubcategory={selectedSubcategory}
+        onApplyFilters={handleApplyFilters}
+      />
     </div>
   );
 };

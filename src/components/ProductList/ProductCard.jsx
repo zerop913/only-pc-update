@@ -6,6 +6,7 @@ import {
 } from "@heroicons/react/24/outline";
 import Button from "../UI/Button";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
 const ProductCard = ({
   item,
@@ -21,8 +22,8 @@ const ProductCard = ({
   const imageSrc = item.image_url
     ? `/${item.image_url}`
     : item.image
-    ? `/images/${item.image}`
-    : `/images/placeholder.png`;
+      ? `/images/${item.image}`
+      : `/images/placeholder.png`;
 
   const handleCardClick = async (e) => {
     if (isCategory) {
@@ -35,9 +36,20 @@ const ProductCard = ({
       return;
     }
 
-    e.preventDefault();
-    onProductClick(categoryPath, item.slug);
+    // Если это не клик средней кнопкой мыши, используем стандартное поведение
+    if (e.button !== 1) {
+      e.preventDefault();
+      onProductClick(categoryPath, item.slug);
+    }
   };
+
+  const handleAddToBuild = (e) => {
+    e.preventDefault(); // Предотвращаем навигацию
+    e.stopPropagation(); // Предотвращаем всплытие события
+    onAddToBuild(item);
+  };
+
+  const productUrl = `/products/${categoryPath}/${item.slug}`;
 
   const cardClasses = `
     bg-[#12131E] rounded-xl p-4 shadow-md border border-[#1F1E24] 
@@ -66,13 +78,8 @@ const ProductCard = ({
     }
   `;
 
-  return (
-    <motion.div
-      className={cardClasses}
-      onClick={handleCardClick}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.2 }}
-    >
+  const CardContent = () => (
+    <>
       <div className={imageClasses}>
         <img
           src={imageSrc}
@@ -100,14 +107,14 @@ const ProductCard = ({
                   {item.price?.toLocaleString()} ₽
                 </p>
               )}
-              <div
-                className="flex space-x-2"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="flex space-x-2">
                 {isCategory ? (
                   <Button
                     icon={ChevronRightIcon}
-                    onClick={() => onCategorySelect(item)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onCategorySelect(item);
+                    }}
                     tooltip="Открыть подкатегории"
                     variant="secondary"
                     hideTooltipOnMobile
@@ -116,7 +123,7 @@ const ProductCard = ({
                   <>
                     <Button
                       icon={PlusIcon}
-                      onClick={() => onAddToBuild(item)}
+                      onClick={handleAddToBuild}
                       tooltip={
                         isInBuild ? "Товар уже в сборке" : "Добавить в сборку"
                       }
@@ -126,7 +133,10 @@ const ProductCard = ({
                     />
                     <Button
                       icon={HeartIcon}
-                      onClick={() => {}}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       tooltip="Добавить в избранное"
                       variant="secondary"
                       hideTooltipOnMobile
@@ -153,14 +163,14 @@ const ProductCard = ({
                   {item.price?.toLocaleString()} ₽
                 </p>
               )}
-              <div
-                className="flex space-x-2"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="flex space-x-2">
                 {isCategory ? (
                   <Button
                     icon={ChevronRightIcon}
-                    onClick={() => onCategorySelect(item)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onCategorySelect(item);
+                    }}
                     tooltip="Открыть подкатегории"
                     variant="secondary"
                     hideTooltipOnMobile
@@ -169,7 +179,7 @@ const ProductCard = ({
                   <>
                     <Button
                       icon={PlusIcon}
-                      onClick={() => onAddToBuild(item)}
+                      onClick={handleAddToBuild}
                       tooltip={
                         isInBuild ? "Товар уже в сборке" : "Добавить в сборку"
                       }
@@ -179,7 +189,10 @@ const ProductCard = ({
                     />
                     <Button
                       icon={HeartIcon}
-                      onClick={() => {}}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       tooltip="Добавить в избранное"
                       variant="secondary"
                       hideTooltipOnMobile
@@ -191,7 +204,28 @@ const ProductCard = ({
           </>
         )}
       </div>
+    </>
+  );
+
+  return isCategory ? (
+    <motion.div
+      className={cardClasses}
+      onClick={handleCardClick}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.2 }}
+    >
+      <CardContent />
     </motion.div>
+  ) : (
+    <Link to={productUrl} onClick={handleCardClick}>
+      <motion.div
+        className={cardClasses}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <CardContent />
+      </motion.div>
+    </Link>
   );
 };
 

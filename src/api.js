@@ -2,22 +2,185 @@ import axios from "axios";
 
 const API_URL = "http://localhost:3000/api";
 
-const cache = new Map();
+class CacheManager {
+  constructor(maxSize = 200, ttl = 10 * 60 * 1000) {
+    this.cache = new Map();
+    this.maxSize = maxSize;
+    this.ttl = ttl;
+  }
+
+  set(key, value) {
+    this.clearExpired();
+
+    if (this.cache.size >= this.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      this.cache.delete(oldestKey);
+    }
+
+    this.cache.set(key, {
+      value,
+      timestamp: Date.now(),
+    });
+  }
+
+  get(key) {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    if (Date.now() - entry.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return entry.value;
+  }
+
+  clearExpired() {
+    const now = Date.now();
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > this.ttl) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+class RateLimiter {
+  constructor(maxRequests = 5, timeWindow = 1000) {
+    this.requests = new Map();
+    this.maxRequests = maxRequests;
+    this.timeWindow = timeWindow;
+  }
+
+  async checkLimit(key) {
+    const now = Date.now();
+    const timestamps = this.requests.get(key) || [];
+
+    // Удаляем старые метки времени
+    const validTimestamps = timestamps.filter(
+      (time) => now - time < this.timeWindow
+    );
+
+    if (validTimestamps.length >= this.maxRequests) {
+      const oldestRequest = validTimestamps[0];
+      const waitTime = this.timeWindow - (now - oldestRequest);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+      return this.checkLimit(key);
+    }
+
+    validTimestamps.push(now);
+    this.requests.set(key, validTimestamps);
+    return true;
+  }
+}
+
+const cache = new CacheManager(200, 10 * 60 * 1000); // Увеличиваем размер кэша и TTL до 10 минут
+const rateLimiter = new RateLimiter(5, 1000); // Максимум 5 запросов в секунду
+
+const api = axios.create({
+  baseURL: API_URL,
+  timeout: 10000,
+  retry: 3,
+  retryDelay: 2000, // Увеличиваем задержку между попытками
+});
+
+api.interceptors.request.use(async (config) => {
+  const requestKey = `${config.method}_${config.url}`;
+  await rateLimiter.checkLimit(requestKey);
+  return config;
+});
+
+api.interceptors.response.use(null, async (error) => {
+  const config = error.config;
+
+  if (!config || !config.retry || config.retryCount >= config.retry) {
+    return Promise.reject(error);
+  }
+
+  // Экспоненциальная задержка для повторных попыток
+  const retryCount = (config.retryCount || 0) + 1;
+  config.retryCount = retryCount;
+  const delay = config.retryDelay * Math.pow(2, retryCount - 1);
+
+  // Если ошибка 429, увеличиваем задержку
+  if (error.response?.status === 429) {
+    const retryAfter = error.response.headers["retry-after"];
+    const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay * 2;
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
+  } else {
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+
+  return api(config);
+});
 
 const getCacheKey = (url, params) => {
   return `${url}?${new URLSearchParams(params).toString()}`;
 };
 
-const cacheRequest = async (url, params = {}) => {
-  const cacheKey = getCacheKey(url, params);
-  if (cache.has(cacheKey)) {
-    return cache.get(cacheKey);
+const requestQueue = new Map();
+
+const queueRequest = async (key, requestPromise) => {
+  const existingRequest = requestQueue.get(key);
+  if (existingRequest) {
+    return existingRequest;
   }
 
-  const response = await axios.get(url, { params });
-  cache.set(cacheKey, response.data);
-  return response.data;
+  try {
+    const promise = requestPromise();
+    requestQueue.set(key, promise);
+    const result = await promise;
+    return result;
+  } finally {
+    requestQueue.delete(key);
+  }
 };
+
+const cacheRequest = async (url, params = {}) => {
+  const cacheKey = getCacheKey(url, params);
+  const cachedData = cache.get(cacheKey);
+
+  if (cachedData) {
+    return cachedData;
+  }
+
+  return queueRequest(cacheKey, async () => {
+    try {
+      const response = await api.get(url, { params });
+      cache.set(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`Ошибка запроса к ${url}:`, {
+        params,
+        status: error.response?.status,
+        message: error.message,
+      });
+      throw error;
+    }
+  });
+};
+
+async function preloadData() {
+  try {
+    // Получаем категории
+    const categories = await fetchCategories();
+
+    // Получаем товары для каждой категории
+    for (const category of categories) {
+      await fetchProducts(category.short_name);
+    }
+
+    console.log("Данные успешно загружены и сохранены в кэше");
+  } catch (error) {
+    console.error("Ошибка при предварительной загрузке данных:", error);
+  }
+}
+
+window.addEventListener("load", preloadData);
 
 export const fetchCategories = async () => {
   try {
@@ -69,74 +232,55 @@ export const fetchProducts = async (
   }
 };
 
-export const fetchFilters = async (
-  categoryShortName,
-  childCategoryShortName
-) => {
-  try {
-    let url = `${API_URL}/filter/${categoryShortName}`;
-    if (childCategoryShortName) {
-      url += `/${childCategoryShortName}`;
-    }
-    return await cacheRequest(url);
-  } catch (error) {
-    console.error("Ошибка при получении фильтров:", error);
-    throw error;
-  }
-};
-
-export const fetchFilteredProducts = async (
-  categoryShortName,
-  childCategoryShortName,
-  filters,
-  page = 1,
-  limit = 9
-) => {
-  try {
-    let url = `${API_URL}/filter/${categoryShortName}`;
-    if (childCategoryShortName) {
-      url += `/${childCategoryShortName}`;
-    }
-    const params = { page, limit, ...filters };
-    return await cacheRequest(url, params);
-  } catch (error) {
-    console.error("Ошибка при получении отфильтрованных продуктов:", error);
-    throw error;
-  }
-};
-
 export const fetchProductBySlug = async (categoryPath, slug) => {
   if (!categoryPath || !slug) {
     throw new Error("Отсутствует категория или slug товара");
   }
 
-  try {
-    console.log(`Запрос товара: категория=${categoryPath}, slug=${slug}`);
-    const url = `${API_URL}/products/${categoryPath}/${slug}`;
-    const response = await axios.get(url);
+  const cacheKey = `product_${categoryPath}_${slug}`;
+  const cachedProduct = cache.get(cacheKey);
 
-    const pathParts = categoryPath.split("/");
-    const mainCategoryResponse = await axios.get(
-      `${API_URL}/categories/${pathParts[0]}`
-    );
-
-    let subcategoryData = null;
-    if (pathParts[1]) {
-      const subcategoriesResponse = await axios.get(
-        `${API_URL}/categories/${pathParts[0]}/${pathParts[1]}`
-      );
-      subcategoryData = subcategoriesResponse.data;
-    }
-
-    return {
-      ...response.data,
-      category: mainCategoryResponse.data,
-      subcategory: subcategoryData,
-    };
-  } catch (error) {
-    console.error("Ошибка при получении информации о товаре:", error);
-    throw new Error(
-      "Ошибка при загрузке товара. Пожалуйста, попробуйте позже."
-    );
+  if (cachedProduct) {
+    return cachedProduct;
   }
+
+  return queueRequest(cacheKey, async () => {
+    try {
+      const url = `${API_URL}/products/${categoryPath}/${slug}`;
+      const [productResponse, categoriesData] = await Promise.all([
+        api.get(url),
+        fetchCategories(),
+      ]);
+
+      const pathParts = categoryPath.split("/");
+      const mainCategory = categoriesData.find(
+        (cat) => cat.short_name === pathParts[0]
+      );
+
+      let subcategoryData = null;
+      if (pathParts[1] && mainCategory) {
+        subcategoryData = mainCategory.children?.find(
+          (sub) => sub.short_name === pathParts[1]
+        );
+      }
+
+      const productData = {
+        ...productResponse.data,
+        category: mainCategory,
+        subcategory: subcategoryData,
+      };
+
+      cache.set(cacheKey, productData);
+      return productData;
+    } catch (error) {
+      console.error("Ошибка при получении информации о товаре:", {
+        categoryPath,
+        slug,
+        error: error.message,
+      });
+      throw new Error(
+        "Ошибка при загрузке товара. Пожалуйста, попробуйте позже."
+      );
+    }
+  });
 };

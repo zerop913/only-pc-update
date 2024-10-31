@@ -1,12 +1,11 @@
 import React from "react";
-import { useImage } from "react-image";
-import { useNavigate } from "react-router-dom";
-import Button from "../UI/Button";
 import {
   HeartIcon,
   PlusIcon,
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
+import Button from "../UI/Button";
+import { motion } from "framer-motion";
 
 const ProductCard = ({
   item,
@@ -15,8 +14,8 @@ const ProductCard = ({
   isInBuild,
   onCategorySelect,
   categoryPath,
+  onProductClick,
 }) => {
-  const navigate = useNavigate();
   const isCategory = item.children !== undefined;
 
   const imageSrc = item.image_url
@@ -25,20 +24,19 @@ const ProductCard = ({
     ? `/images/${item.image}`
     : `/images/placeholder.png`;
 
-  const { src, isLoading, error } = useImage({
-    srcList: [imageSrc, `/images/placeholder.png`],
-    useSuspense: false,
-  });
-
-  const handleCardClick = (e) => {
+  const handleCardClick = async (e) => {
     if (isCategory) {
       onCategorySelect(item);
-    } else if (item.slug) {
-      window.open(`/products/${categoryPath}/${item.slug}`, "_blank");
-    } else {
-      console.error("Товар не имеет slug:", item);
+      return;
     }
+
+    if (!item.slug) {
+      console.error("Товар не имеет slug:", item);
+      return;
+    }
+
     e.preventDefault();
+    onProductClick(categoryPath, item.slug);
   };
 
   const cardClasses = `
@@ -57,7 +55,7 @@ const ProductCard = ({
         ? "w-full aspect-square mb-4"
         : "w-24 h-24 flex-shrink-0"
     }
-    object-cover rounded-md transition-all duration-300 ease-in-out
+    object-cover rounded-md
   `;
 
   const contentClasses = `
@@ -66,29 +64,25 @@ const ProductCard = ({
         ? "flex flex-col justify-between flex-grow"
         : "flex flex-grow"
     }
-    transition-all duration-300 ease-in-out
   `;
 
   return (
-    <div className={cardClasses} onClick={handleCardClick}>
+    <motion.div
+      className={cardClasses}
+      onClick={handleCardClick}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.2 }}
+    >
       <div className={imageClasses}>
-        {isLoading ? (
-          <div className="w-full h-full bg-[#1D1E2C] animate-pulse rounded-md"></div>
-        ) : error ? (
-          <div className="w-full h-full bg-[#1D1E2C] flex items-center justify-center text-[#9D9EA6] rounded-md">
-            <span className="text-sm">Нет фото</span>
-          </div>
-        ) : (
-          <img
-            src={src}
-            alt={item.name}
-            className="w-full h-full object-cover rounded-md"
-            onError={(e) => {
-              console.error(`Ошибка загрузки изображения для ${item.name}:`, e);
-              e.target.src = "/images/placeholder.png";
-            }}
-          />
-        )}
+        <img
+          src={imageSrc}
+          alt={item.name}
+          className="w-full h-full object-cover rounded-md"
+          onError={(e) => {
+            console.error(`Ошибка загрузки изображения для ${item.name}:`, e);
+            e.target.src = "/images/placeholder.png";
+          }}
+        />
       </div>
       <div className={contentClasses}>
         {viewMode === "grid" ? (
@@ -197,7 +191,7 @@ const ProductCard = ({
           </>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

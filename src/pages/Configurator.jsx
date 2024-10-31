@@ -10,14 +10,16 @@ import Modal from "../components/UI/Modal";
 import ReplaceProductModal from "../components/Modal/ReplaceProductModal";
 import RemoveProductModal from "../components/Modal/RemoveProductModal";
 import ClearBuildModal from "../components/Modal/ClearBuildModal";
+import useSessionStorage from "../hooks/useSessionStorage";
 import { fetchCategories } from "../api";
 
 function Configurator() {
+  const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [activeTab, setActiveTab] = useState("products");
-  const [buildItems, setBuildItems] = useState([]);
+  const [buildItems, setBuildItems] = useSessionStorage("buildItems", []);
   const [viewMode, setViewMode] = useState("list");
   const [totalPrice, setTotalPrice] = useState(0);
   const [modalState, setModalState] = useState({ type: null, data: null });
@@ -27,7 +29,8 @@ function Configurator() {
   const location = useLocation();
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadInitialData = async () => {
+      setIsLoading(true);
       try {
         const categoriesData = await fetchCategories();
         setCategories(categoriesData);
@@ -50,10 +53,34 @@ function Configurator() {
         }
       } catch (error) {
         console.error("Ошибка при загрузке категорий:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
-    loadCategories();
-  }, [categoryShortName, subcategoryShortName]);
+
+    loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && categories.length > 0) {
+      const category = categories.find(
+        (c) => c.short_name === categoryShortName
+      );
+      if (category) {
+        setSelectedCategory(category);
+        if (subcategoryShortName) {
+          const subcategory = category.children?.find(
+            (sc) => sc.short_name === subcategoryShortName
+          );
+          if (subcategory) {
+            setSelectedSubcategory(subcategory);
+          }
+        } else {
+          setSelectedSubcategory(null);
+        }
+      }
+    }
+  }, [categoryShortName, subcategoryShortName, categories, isLoading]);
 
   useEffect(() => {
     const newTotalPrice = buildItems.reduce(
@@ -74,7 +101,6 @@ function Configurator() {
   }, [selectedCategory, selectedSubcategory]);
 
   const handleAddToBuild = (product) => {
-    // Определяем корневую категорию товара
     let rootCategory;
     if (selectedSubcategory) {
       rootCategory = selectedCategory.short_name;
@@ -82,7 +108,6 @@ function Configurator() {
       rootCategory = product.category || selectedCategory.short_name;
     }
 
-    // Проверяем, есть ли уже товар из этой категории в сборке
     const existingProduct = buildItems.find((item) => {
       const itemCategory =
         item.category ||
@@ -182,22 +207,28 @@ function Configurator() {
   return (
     <div className="min-h-screen bg-[#0E0F18]">
       <Header />
-      <Categories
-        categories={categories}
-        onCategorySelect={handleCategorySelect}
-        onSubcategorySelect={handleSubcategorySelect}
-        selectedCategory={selectedCategory}
-        selectedSubcategory={selectedSubcategory}
-        totalPrice={totalPrice}
-      />
-      <div className="mt-6 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-[200px]">
+        <Categories
+          categories={categories}
+          onCategorySelect={handleCategorySelect}
+          onSubcategorySelect={handleSubcategorySelect}
+          selectedCategory={selectedCategory}
+          selectedSubcategory={selectedSubcategory}
+          totalPrice={totalPrice}
+          isLoading={isLoading}
+        />
+      </div>
+
+      <div className="mt-6 px-4 sm:px-6 lg:px-8 min-h-[400px]">
         <div className="flex justify-center">
           <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
         <div className="relative overflow-hidden">
           <div
-            className={`transition-all duration-300 ease-in-out ${
-              activeTab === "products" ? "translate-x-0" : "-translate-x-full"
+            className={`transition-all duration-300 ease-in-out absolute w-full ${
+              activeTab === "products"
+                ? "translate-x-0 relative"
+                : "-translate-x-full absolute"
             }`}
           >
             <ProductList
@@ -208,11 +239,14 @@ function Configurator() {
               setViewMode={setViewMode}
               buildItems={buildItems}
               onSubcategorySelect={handleSubcategorySelect}
+              isLoading={isLoading}
             />
           </div>
           <div
-            className={`absolute top-0 left-0 w-full transition-all duration-300 ease-in-out ${
-              activeTab === "build" ? "translate-x-0" : "translate-x-full"
+            className={`transition-all duration-300 ease-in-out absolute w-full ${
+              activeTab === "build"
+                ? "translate-x-0 relative"
+                : "translate-x-full absolute"
             }`}
           >
             <BuildList
@@ -223,6 +257,7 @@ function Configurator() {
           </div>
         </div>
       </div>
+
       <Notification />
       <Modal
         isOpen={modalState.type !== null}

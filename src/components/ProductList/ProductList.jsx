@@ -5,7 +5,9 @@ import ProductCard from "./ProductCard";
 import EmptyCategory from "./EmptyCategory";
 import NoCategorySelected from "./NoCategorySelected";
 import SelectSubcategory from "./SelectSubcategory";
-import { fetchProducts } from "../../api";
+import ProductPage from "../../pages/ProductPage";
+import { fetchProducts, fetchProductBySlug } from "../../api";
+import { motion, AnimatePresence } from "framer-motion";
 
 const ProductList = ({
   selectedCategory,
@@ -22,20 +24,82 @@ const ProductList = ({
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isProductView, setIsProductView] = useState(false);
+  const [pageMemory, setPageMemory] = useState(new Map());
   const itemsPerPage = 50;
 
   const location = useLocation();
   const navigate = useNavigate();
 
+  const getCategoryKey = useCallback(() => {
+    if (!selectedCategory) return null;
+    return selectedSubcategory
+      ? `${selectedCategory.short_name}/${selectedSubcategory.short_name}`
+      : selectedCategory.short_name;
+  }, [selectedCategory, selectedSubcategory]);
+
   useEffect(() => {
     const hash = location.hash;
     const page = parseInt(hash.replace("#page=", ""), 10);
+    const categoryKey = getCategoryKey();
+
     if (!isNaN(page) && page > 0) {
       setCurrentPage(page);
-    } else {
-      setCurrentPage(1);
+      if (categoryKey) {
+        setPageMemory((prev) => new Map(prev).set(categoryKey, page));
+      }
+    } else if (categoryKey) {
+      const savedPage = pageMemory.get(categoryKey) || 1;
+      setCurrentPage(savedPage);
+      navigate(`${location.pathname}#page=${savedPage}`, { replace: true });
     }
-  }, [location]);
+  }, [location.hash, getCategoryKey, navigate]);
+
+  const loadProduct = async (categoryPath, slug) => {
+    try {
+      const product = await fetchProductBySlug(categoryPath, slug);
+      setSelectedProduct(product);
+      setIsProductView(true);
+    } catch (err) {
+      console.error("Ошибка при загрузке товара:", err);
+      setError("Не удалось загрузить информацию о товаре");
+    }
+  };
+
+  const handleProductClick = async (categoryPath, slug) => {
+    const currentHash = location.hash;
+    const currentPage = currentHash.replace("#page=", "") || "1";
+
+    const categoryKey = getCategoryKey();
+    if (categoryKey) {
+      setPageMemory((prev) =>
+        new Map(prev).set(categoryKey, parseInt(currentPage, 10))
+      );
+    }
+
+    // Сохраняем полный путь с номером страницы в localStorage
+    localStorage.setItem(
+      `lastPath_${categoryPath}`,
+      `/${categoryPath}${currentHash}`
+    );
+
+    navigate(`/products/${categoryPath}/${slug}`, { replace: true });
+    await loadProduct(categoryPath, slug);
+  };
+
+  const handleBreadcrumbClick = (e, path) => {
+    e.preventDefault();
+    setIsProductView(false);
+    setSelectedProduct(null);
+
+    const pathParts = path.split("/").filter(Boolean);
+    const categoryKey = pathParts.join("/");
+    const savedPage = pageMemory.get(categoryKey) || 1;
+    const newPath = `${path}#page=${savedPage}`;
+
+    navigate(newPath, { replace: true });
+  };
 
   const loadItems = useCallback(async () => {
     if (!selectedCategory) return;
@@ -49,10 +113,6 @@ const ProductList = ({
         ? selectedSubcategory.short_name
         : null;
 
-      console.log(
-        `Загрузка элементов: категория=${categoryName}, подкатегория=${subcategoryName}, страница=${currentPage}`
-      );
-
       const response = await fetchProducts(
         categoryName,
         subcategoryName,
@@ -60,18 +120,13 @@ const ProductList = ({
         itemsPerPage
       );
 
-      console.log("Полученные данные:", response);
-
       if (response.categories) {
-        console.log(`Получены подкатегории: ${response.categories.length}`);
         setItems(response.categories);
         setTotalPages(response.totalPages);
       } else if (response.products) {
-        console.log(`Получены товары: ${response.products.length}`);
         setItems(response.products);
         setTotalPages(response.totalPages);
       } else {
-        console.log("Нет данных о подкатегориях или товарах");
         setItems([]);
         setTotalPages(1);
       }
@@ -90,22 +145,30 @@ const ProductList = ({
   }, [loadItems]);
 
   useEffect(() => {
-    if (selectedCategory) {
+    if (selectedCategory && !isProductView && !location.hash) {
       setCurrentPage(1);
       const baseUrl = selectedSubcategory
         ? `/${selectedCategory.short_name}/${selectedSubcategory.short_name}`
         : `/${selectedCategory.short_name}`;
-      navigate(`${baseUrl}#page=1`);
+      navigate(`${baseUrl}#page=1`, { replace: true });
     }
-  }, [selectedCategory, selectedSubcategory, navigate]);
+  }, [
+    selectedCategory,
+    selectedSubcategory,
+    navigate,
+    isProductView,
+    location.hash,
+  ]);
 
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
-    if (selectedCategory) {
+    const categoryKey = getCategoryKey();
+    if (categoryKey) {
+      setPageMemory((prev) => new Map(prev).set(categoryKey, newPage));
       const baseUrl = selectedSubcategory
         ? `/${selectedCategory.short_name}/${selectedSubcategory.short_name}`
         : `/${selectedCategory.short_name}`;
-      navigate(`${baseUrl}#page=${newPage}`);
+      navigate(`${baseUrl}#page=${newPage}`, { replace: true });
     }
   };
 
@@ -169,6 +232,29 @@ const ProductList = ({
     return <div className="text-red-500 text-center mt-8">{error}</div>;
   }
 
+  if (isProductView && selectedProduct) {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="container mx-auto px-4 py-8"
+        >
+          <ProductPage
+            product={selectedProduct}
+            onBreadcrumbClick={handleBreadcrumbClick}
+            categoryData={{
+              mainCategory: selectedCategory,
+              subCategory: selectedSubcategory,
+            }}
+          />
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
+
   if (
     selectedCategory.children &&
     selectedCategory.children.length > 0 &&
@@ -207,37 +293,45 @@ const ProductList = ({
         sortBy={sortBy}
         setSortBy={setSortBy}
       />
-      {loading && (
-        <div className="text-white text-center mt-8">Загрузка элементов...</div>
-      )}
-      {error && (
-        <div className="text-red-500 text-center mt-8">
-          Ошибка: {error}. Пожалуйста, попробуйте позже.
-        </div>
-      )}
-      {!loading && !error && (
-        <div
-          className={`mt-4 grid gap-4 transition-all duration-500 ease-in-out ${
+      <AnimatePresence mode="wait" key={viewMode}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4 }}
+          className={`mt-4 grid gap-4 ${
             viewMode === "grid"
-              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
               : "grid-cols-1"
           }`}
         >
-          {sortedItems.map((item) => (
-            <ProductCard
+          {sortedItems.map((item, index) => (
+            <motion.div
               key={item.id}
-              item={item}
-              viewMode={viewMode}
-              onAddToBuild={onAddToBuild}
-              isInBuild={buildItems.some(
-                (buildItem) => buildItem.id === item.id
-              )}
-              onCategorySelect={onSubcategorySelect}
-              categoryPath={getCategoryPath()}
-            />
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{
+                duration: 0.3,
+                delay: index * 0.05,
+                ease: "easeOut",
+              }}
+            >
+              <ProductCard
+                item={item}
+                viewMode={viewMode}
+                onAddToBuild={onAddToBuild}
+                isInBuild={buildItems.some(
+                  (buildItem) => buildItem.id === item.id
+                )}
+                onCategorySelect={onSubcategorySelect}
+                categoryPath={getCategoryPath()}
+                onProductClick={handleProductClick}
+              />
+            </motion.div>
           ))}
-        </div>
-      )}
+        </motion.div>
+      </AnimatePresence>
       {totalPages > 1 && renderPagination()}
     </div>
   );

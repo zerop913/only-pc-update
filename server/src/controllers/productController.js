@@ -5,19 +5,55 @@ const {
   ProductCharacteristic,
 } = require("../models");
 
+// Добавляем обработчик ошибок
+const handleError = (error, operation) => {
+  console.error(`Ошибка в ${operation}:`, {
+    message: error.message,
+    stack: error.stack,
+    code: error.code,
+  });
+
+  // Проверяем тип ошибки и возвращаем соответствующий статус
+  if (error.name === "SequelizeConnectionError") {
+    return {
+      status: 503,
+      message: "База данных временно недоступна. Пожалуйста, попробуйте позже.",
+    };
+  }
+
+  if (error.name === "SequelizeTimeoutError") {
+    return {
+      status: 504,
+      message: "Превышено время ожидания ответа. Пожалуйста, попробуйте позже.",
+    };
+  }
+
+  return {
+    status: 500,
+    message: "Произошла внутренняя ошибка сервера.",
+  };
+};
+
 const productController = {
   getProductsByCategory: async (req, res) => {
     try {
       const categoryId = req.params.categoryId;
-      const products = await Product.findAll({
-        where: { category_id: categoryId },
-        include: [
-          {
-            model: Characteristic,
-            through: { model: ProductCharacteristic, attributes: ["value"] },
-          },
-        ],
-      });
+
+      // Добавляем таймаут для запроса
+      const products = await Promise.race([
+        Product.findAll({
+          where: { category_id: categoryId },
+          include: [
+            {
+              model: Characteristic,
+              through: { model: ProductCharacteristic, attributes: ["value"] },
+            },
+          ],
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Database Timeout")), 5000)
+        ),
+      ]);
 
       const formattedProducts = products.map((product) => ({
         id: product.id,
@@ -33,11 +69,11 @@ const productController = {
 
       res.json(formattedProducts);
     } catch (error) {
-      res
-        .status(500)
-        .json({ message: "Error fetching products", error: error.message });
+      const { status, message } = handleError(error, "getProductsByCategory");
+      res.status(status).json({ message, error: error.message });
     }
   },
+
   getProductBySlug: async (req, res) => {
     try {
       const { categories, childCategories, slug } = req.params;
@@ -47,25 +83,34 @@ const productController = {
         categoryPath += "/" + childCategories;
       }
 
-      console.log(`Поиск товара: категория=${categoryPath}, slug=${slug}`);
-
-      const product = await Product.findOne({
-        where: { slug },
-        include: [
-          {
-            model: Category,
-            where: { short_name: categoryPath.split("/").pop() },
-          },
-          {
-            model: Characteristic,
-            through: { model: ProductCharacteristic, attributes: ["value"] },
-          },
-        ],
-      });
+      // Добавляем таймаут для запроса
+      const product = await Promise.race([
+        Product.findOne({
+          where: { slug },
+          include: [
+            {
+              model: Category,
+              where: { short_name: categoryPath.split("/").pop() },
+            },
+            {
+              model: Characteristic,
+              through: { model: ProductCharacteristic, attributes: ["value"] },
+            },
+          ],
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Database Timeout")), 5000)
+        ),
+      ]);
 
       if (!product) {
-        console.log(`Товар не найден: категория=${categoryPath}, slug=${slug}`);
-        return res.status(404).json({ message: "Товар не найден" });
+        return res.status(404).json({
+          message: "Товар не найден",
+          details: {
+            categoryPath,
+            slug,
+          },
+        });
       }
 
       const formattedProduct = {
@@ -87,11 +132,8 @@ const productController = {
 
       res.json(formattedProduct);
     } catch (error) {
-      console.error("Ошибка при получении товара:", error);
-      res.status(500).json({
-        message: "Ошибка при получении товара",
-        error: error.message,
-      });
+      const { status, message } = handleError(error, "getProductBySlug");
+      res.status(status).json({ message, error: error.message });
     }
   },
 };

@@ -13,6 +13,7 @@
     "@fontsource/montserrat-alternates": "^5.1.0",
     "@headlessui/react": "^2.1.8",
     "@heroicons/react": "^2.1.5",
+    "@radix-ui/react-slider": "^1.2.1",
     "autoprefixer": "^10.4.20",
     "axios": "^1.7.7",
     "cors": "^2.8.5",
@@ -22,12 +23,13 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-feather": "^2.0.10",
-    "react-helmet": "^6.1.0",
+    "react-helmet-async": "^2.0.5",
     "react-image": "^4.1.0",
     "react-images": "^1.2.0-beta.7",
     "react-router-dom": "^6.26.2",
     "react-virtualized-auto-sizer": "^1.0.24",
     "react-window": "^1.8.10",
+    "shadcn-vue": "^0.11.0",
     "tailwindcss": "^3.4.12"
   },
   "devDependencies": {

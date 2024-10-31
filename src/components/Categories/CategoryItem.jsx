@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from "react";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 
-const CategoryItem = ({ name, icon, isSelected, onClick }) => {
+const CategoryItem = ({
+  name,
+  icon,
+  isSelected,
+  hasChildren,
+  isExpanded,
+  onClick,
+}) => {
   const [svgContent, setSvgContent] = useState("");
 
   useEffect(() => {
@@ -14,7 +22,7 @@ const CategoryItem = ({ name, icon, isSelected, onClick }) => {
 
   return (
     <div
-      className={`rounded-lg p-3 flex flex-col items-center justify-center transition-all duration-300 cursor-pointer
+      className={`rounded-lg p-3 flex flex-col items-center justify-center transition-all duration-300 cursor-pointer relative group
         ${
           isSelected
             ? "bg-gradient-to-br from-[#2A2D3E] to-[#353849] ring-2 ring-[#4A4D5E]"
@@ -46,6 +54,15 @@ const CategoryItem = ({ name, icon, isSelected, onClick }) => {
       >
         {name}
       </span>
+
+      {hasChildren && (
+        <ChevronDownIcon
+          className={`w-4 h-4 absolute right-1 bottom-1 transition-transform duration-300
+            ${isSelected ? "text-[#B8B9C3]" : "text-[#6D6E7A]"}
+            ${isSelected && isExpanded ? "rotate-180" : "rotate-0"}
+          `}
+        />
+      )}
     </div>
   );
 };

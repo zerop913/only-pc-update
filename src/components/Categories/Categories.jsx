@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// Categories.jsx
+import React, { useState, useRef, useEffect } from "react";
 import CategoryItem from "./CategoryItem";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 import TotalPrice from "../TotalPrice/TotalPrice";
@@ -12,6 +13,8 @@ const Categories = ({
   onSubcategorySelect,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [subcategoriesHeight, setSubcategoriesHeight] = useState("0px");
+  const subcategoriesRef = useRef(null);
 
   const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
 
@@ -20,9 +23,18 @@ const Categories = ({
     setIsDropdownOpen(false);
   };
 
+  useEffect(() => {
+    if (subcategoriesRef.current) {
+      const height = selectedCategory?.children?.length
+        ? `${subcategoriesRef.current.scrollHeight}px`
+        : "0px";
+      setSubcategoriesHeight(height);
+    }
+  }, [selectedCategory]);
+
   return (
     <div className="mt-6 px-4 sm:px-6 lg:px-8">
-      <div className="bg-[#12131E] rounded-xl p-4 sm:p-6 shadow-md border border-[#1F1E24]">
+      <div className="bg-[#12131E] rounded-xl p-4 sm:p-6 shadow-md border border-[#1F1E24] min-h-[120px]">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-white text-xl font-bold">Выберите компоненты</h2>
           <div className="flex items-center space-x-4">
@@ -83,15 +95,25 @@ const Categories = ({
                 selectedCategory &&
                 selectedCategory.short_name === category.short_name
               }
+              hasChildren={category.children && category.children.length > 0}
               onClick={() => handleCategorySelect(category)}
             />
           ))}
         </div>
 
-        {selectedCategory &&
-          selectedCategory.children &&
-          selectedCategory.children.length > 0 && (
-            <div className="mt-4">
+        <div
+          ref={subcategoriesRef}
+          className="transition-all duration-500 ease-in-out overflow-hidden"
+          style={{
+            height: subcategoriesHeight,
+            opacity: selectedCategory?.children?.length ? 1 : 0,
+            transform: `translateY(${
+              selectedCategory?.children?.length ? "0" : "-10px"
+            })`,
+          }}
+        >
+          {selectedCategory?.children?.length > 0 && (
+            <div className="py-4">
               <h3 className="text-[#E0E1E6] text-lg font-semibold mb-2">
                 Подкатегории
               </h3>
@@ -100,12 +122,14 @@ const Categories = ({
                   <button
                     key={subcat.short_name}
                     onClick={() => onSubcategorySelect(subcat)}
-                    className={`px-3 py-1 rounded-full text-sm transition-colors duration-200 ${
-                      selectedSubcategory &&
-                      selectedSubcategory.short_name === subcat.short_name
-                        ? "bg-[#2A2D3E] text-[#E0E1E6]"
-                        : "bg-[#1D1E2C] text-[#9D9EA6] hover:bg-[#252736] hover:text-[#B8B9C3]"
-                    }`}
+                    className={`px-3 py-1 rounded-full text-sm transition-all duration-300 transform hover:scale-105
+                      ${
+                        selectedSubcategory &&
+                        selectedSubcategory.short_name === subcat.short_name
+                          ? "bg-[#2A2D3E] text-[#E0E1E6]"
+                          : "bg-[#1D1E2C] text-[#9D9EA6] hover:bg-[#252736] hover:text-[#B8B9C3]"
+                      }
+                    `}
                   >
                     {subcat.russian_name}
                   </button>
@@ -113,6 +137,7 @@ const Categories = ({
               </div>
             </div>
           )}
+        </div>
       </div>
     </div>
   );

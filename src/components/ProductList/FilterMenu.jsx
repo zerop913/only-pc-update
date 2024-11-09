@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   XMarkIcon,
@@ -8,125 +8,170 @@ import {
 import axios from "axios";
 import { API_URL } from "../../api";
 
-const FilterSection = ({ title, expanded, onToggle, children }) => (
-  <div className="border-b border-[#1F1E24] last:border-b-0">
-    <button
-      onClick={onToggle}
-      className="w-full py-2 px-3 flex justify-between items-center text-[#E0E1E6] hover:bg-[#1D1E2C] transition-colors rounded-md"
-    >
-      <span className="text-sm font-medium text-left">{title}</span>
-      <ChevronDownIcon
-        className={`w-4 h-4 transition-transform duration-300 ${
-          expanded ? "transform rotate-180" : ""
-        }`}
-      />
-    </button>
-    <AnimatePresence initial={false}>
-      {expanded && (
-        <motion.div
-          initial={{ height: 0 }}
-          animate={{ height: "auto" }}
-          exit={{ height: 0 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="overflow-hidden"
-        >
-          <div className="px-3 pb-2">{children}</div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  </div>
-);
+const FilterSection = memo(({ title, expanded, onToggle, children }) => {
+  const sectionRef = useRef(null);
+  const contentRef = useRef(null);
 
-const PriceRangeSlider = ({
-  minPrice,
-  maxPrice,
-  priceRange,
-  setPriceRange,
-}) => {
-  const getPercentage = (value) =>
-    ((value - minPrice) / (maxPrice - minPrice)) * 100;
-  const leftPercentage = getPercentage(priceRange[0]);
-  const rightPercentage = getPercentage(priceRange[1]);
+  useEffect(() => {
+    if (!expanded) return;
 
-  const handleInputChange = (value, index) => {
-    const newValue = Math.max(minPrice, Math.min(maxPrice, value));
-    if (index === 0) {
-      setPriceRange([Math.min(newValue, priceRange[1]), priceRange[1]]);
-    } else {
-      setPriceRange([priceRange[0], Math.max(newValue, priceRange[0])]);
+    const scrollIntoViewIfNeeded = () => {
+      if (!sectionRef.current) return;
+
+      const container = sectionRef.current.closest(".overflow-y-auto");
+      if (!container) return;
+
+      const sectionRect = sectionRef.current.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+
+      if (sectionRect.bottom > containerRect.bottom) {
+        const minScrollNeeded = sectionRect.bottom - containerRect.bottom;
+        container.scrollTo({
+          top: container.scrollTop + minScrollNeeded + 8,
+          behavior: "auto",
+        });
+      }
+    };
+
+    const resizeCallback = () => {
+      requestAnimationFrame(scrollIntoViewIfNeeded);
+    };
+
+    const resizeObserver = new ResizeObserver(resizeCallback);
+
+    if (contentRef.current) {
+      resizeObserver.observe(contentRef.current);
     }
-  };
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [expanded]);
 
   return (
-    <div className="space-y-4 pt-2">
-      <div className="relative h-1">
-        <div className="absolute w-full h-1 bg-[#1D1E2C] rounded-full" />
-        <div
-          className="absolute h-1 bg-[#2A2D3E] rounded-full"
-          style={{
-            left: `${leftPercentage}%`,
-            right: `${100 - rightPercentage}%`,
-          }}
+    <div className="border-b border-[#1F1E24] last:border-b-0" ref={sectionRef}>
+      <button
+        onClick={onToggle}
+        className="w-full py-2 px-3 flex justify-between items-center text-[#E0E1E6] hover:bg-[#1D1E2C] transition-colors rounded-md"
+      >
+        <span className="text-sm font-medium text-left">{title}</span>
+        <ChevronDownIcon
+          className={`w-4 h-4 transition-transform duration-300 ${
+            expanded ? "transform rotate-180" : ""
+          }`}
         />
-        <input
-          type="range"
-          min={minPrice}
-          max={maxPrice}
-          value={priceRange[0]}
-          onChange={(e) => handleInputChange(Number(e.target.value), 0)}
-          className="absolute w-full appearance-none bg-transparent pointer-events-none h-1
-            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto
-            [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full
-            [&::-webkit-slider-thumb]:bg-[#E0E1E6] [&::-webkit-slider-thumb]:cursor-pointer
-            [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[#2A2D3E]
-            [&::-webkit-slider-thumb]:shadow-lg
-            hover:[&::-webkit-slider-thumb]:bg-white"
-        />
-        <input
-          type="range"
-          min={minPrice}
-          max={maxPrice}
-          value={priceRange[1]}
-          onChange={(e) => handleInputChange(Number(e.target.value), 1)}
-          className="absolute w-full appearance-none bg-transparent pointer-events-none h-1
-            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto
-            [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full
-            [&::-webkit-slider-thumb]:bg-[#E0E1E6] [&::-webkit-slider-thumb]:cursor-pointer
-            [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[#2A2D3E]
-            [&::-webkit-slider-thumb]:shadow-lg
-            hover:[&::-webkit-slider-thumb]:bg-white"
-        />
-      </div>
-      <div className="flex items-center justify-between space-x-4">
-        <div className="relative flex-1">
-          <input
-            type="number"
-            value={priceRange[0]}
-            onChange={(e) => handleInputChange(Number(e.target.value), 0)}
-            className="w-full bg-[#1D1E2C] border border-[#2A2D3E] rounded px-2 py-1 text-sm text-[#E0E1E6]"
-          />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-[#9D9EA6]">
-            ₽
-          </span>
-        </div>
-        <span className="text-[#9D9EA6]">—</span>
-        <div className="relative flex-1">
-          <input
-            type="number"
-            value={priceRange[1]}
-            onChange={(e) => handleInputChange(Number(e.target.value), 1)}
-            className="w-full bg-[#1D1E2C] border border-[#2A2D3E] rounded px-2 py-1 text-sm text-[#E0E1E6]"
-          />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-[#9D9EA6]">
-            ₽
-          </span>
-        </div>
-      </div>
+      </button>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            ref={contentRef}
+            initial={{ height: 0 }}
+            animate={{ height: "auto" }}
+            exit={{ height: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-2">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
-};
+});
 
-const CustomCheckbox = ({ checked, onChange, label }) => (
+const PriceRangeSlider = memo(
+  ({ minPrice, maxPrice, priceRange, setPriceRange }) => {
+    const getPercentage = useCallback(
+      (value) => ((value - minPrice) / (maxPrice - minPrice)) * 100,
+      [minPrice, maxPrice]
+    );
+
+    const leftPercentage = getPercentage(priceRange[0]);
+    const rightPercentage = getPercentage(priceRange[1]);
+
+    const handleInputChange = useCallback(
+      (value, index) => {
+        const newValue = Math.max(minPrice, Math.min(maxPrice, value));
+        if (index === 0) {
+          setPriceRange([Math.min(newValue, priceRange[1]), priceRange[1]]);
+        } else {
+          setPriceRange([priceRange[0], Math.max(newValue, priceRange[0])]);
+        }
+      },
+      [minPrice, maxPrice, priceRange, setPriceRange]
+    );
+
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="relative h-1">
+          <div className="absolute w-full h-1 bg-[#1D1E2C] rounded-full" />
+          <div
+            className="absolute h-1 bg-[#2A2D3E] rounded-full"
+            style={{
+              left: `${leftPercentage}%`,
+              right: `${100 - rightPercentage}%`,
+            }}
+          />
+          <input
+            type="range"
+            min={minPrice}
+            max={maxPrice}
+            value={priceRange[0]}
+            onChange={(e) => handleInputChange(Number(e.target.value), 0)}
+            className="absolute w-full appearance-none bg-transparent pointer-events-none h-1
+            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto
+            [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full
+            [&::-webkit-slider-thumb]:bg-[#E0E1E6] [&::-webkit-slider-thumb]:cursor-pointer
+            [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[#2A2D3E]
+            [&::-webkit-slider-thumb]:shadow-lg
+            hover:[&::-webkit-slider-thumb]:bg-white"
+          />
+          <input
+            type="range"
+            min={minPrice}
+            max={maxPrice}
+            value={priceRange[1]}
+            onChange={(e) => handleInputChange(Number(e.target.value), 1)}
+            className="absolute w-full appearance-none bg-transparent pointer-events-none h-1
+            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto
+            [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full
+            [&::-webkit-slider-thumb]:bg-[#E0E1E6] [&::-webkit-slider-thumb]:cursor-pointer
+            [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[#2A2D3E]
+            [&::-webkit-slider-thumb]:shadow-lg
+            hover:[&::-webkit-slider-thumb]:bg-white"
+          />
+        </div>
+        <div className="flex items-center justify-between space-x-4">
+          <div className="relative flex-1">
+            <input
+              type="number"
+              value={priceRange[0]}
+              onChange={(e) => handleInputChange(Number(e.target.value), 0)}
+              className="w-full bg-[#1D1E2C] border border-[#2A2D3E] rounded px-2 py-1 text-sm text-[#E0E1E6]"
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-[#9D9EA6]">
+              ₽
+            </span>
+          </div>
+          <span className="text-[#9D9EA6]">—</span>
+          <div className="relative flex-1">
+            <input
+              type="number"
+              value={priceRange[1]}
+              onChange={(e) => handleInputChange(Number(e.target.value), 1)}
+              className="w-full bg-[#1D1E2C] border border-[#2A2D3E] rounded px-2 py-1 text-sm text-[#E0E1E6]"
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-[#9D9EA6]">
+              ₽
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
+
+const CustomCheckbox = memo(({ checked, onChange, label }) => (
   <label className="flex items-center space-x-2 text-[#9D9EA6] hover:text-[#E0E1E6] cursor-pointer group">
     <div className="relative w-4 h-4">
       <div
@@ -149,7 +194,7 @@ const CustomCheckbox = ({ checked, onChange, label }) => (
     </div>
     <span className="text-sm truncate">{label}</span>
   </label>
-);
+));
 
 const FilterMenu = ({
   isOpen,
@@ -163,15 +208,19 @@ const FilterMenu = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const categoryPath = selectedCategory
-    ? selectedSubcategory
+  const categoryPath = useCallback(() => {
+    if (!selectedCategory) return "";
+    return selectedSubcategory
       ? `${selectedCategory.short_name}/${selectedSubcategory.short_name}`
-      : selectedCategory.short_name
-    : "";
+      : selectedCategory.short_name;
+  }, [selectedCategory, selectedSubcategory]);
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     const fetchFilters = async () => {
-      if (!categoryPath) {
+      const path = categoryPath();
+      if (!path) {
         setFilters([]);
         return;
       }
@@ -179,15 +228,18 @@ const FilterMenu = ({
       setLoading(true);
       try {
         const response = await axios.get(
-          `${API_URL}/categories/filter/${categoryPath}`
+          `${API_URL}/categories/filter/${path}`,
+          { signal: abortController.signal }
         );
         setFilters(response.data);
         setExpandedSections({ [response.data[0]?.id]: true });
         setError(null);
       } catch (err) {
-        console.error("Ошибка при загрузке фильтров:", err);
-        setError("Не удалось загрузить фильтры");
-        setFilters([]);
+        if (!axios.isCancel(err)) {
+          console.error("Ошибка при загрузке фильтров:", err);
+          setError("Не удалось загрузить фильтры");
+          setFilters([]);
+        }
       } finally {
         setLoading(false);
       }
@@ -195,38 +247,38 @@ const FilterMenu = ({
 
     fetchFilters();
     setSelectedValues({});
+
+    return () => {
+      abortController.abort();
+    };
   }, [categoryPath]);
 
-  const toggleSection = (sectionId) => {
+  const toggleSection = useCallback((sectionId) => {
     setExpandedSections((prev) => ({
       ...prev,
       [sectionId]: !prev[sectionId],
     }));
-  };
+  }, []);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setSelectedValues({});
-    if (onApplyFilters) {
-      onApplyFilters({});
-    }
-  };
+    onApplyFilters?.({});
+  }, [onApplyFilters]);
 
-  const handleApply = () => {
-    if (onApplyFilters) {
-      onApplyFilters(selectedValues);
-    }
-  };
+  const handleApply = useCallback(() => {
+    onApplyFilters?.(selectedValues);
+  }, [onApplyFilters, selectedValues]);
 
-  if (!selectedCategory) return null;
-
-  const getActiveFiltersCount = () => {
+  const getActiveFiltersCount = useCallback(() => {
     return Object.values(selectedValues).reduce((count, value) => {
       if (Array.isArray(value)) {
         return count + value.length;
       }
       return count + (value ? 1 : 0);
     }, 0);
-  };
+  }, [selectedValues]);
+
+  if (!selectedCategory) return null;
 
   return (
     <AnimatePresence>
@@ -302,14 +354,16 @@ const FilterMenu = ({
                             value
                           )}
                           onChange={() => {
-                            setSelectedValues((prev) => ({
-                              ...prev,
-                              [filter.id]: prev[filter.id]
-                                ? prev[filter.id].includes(value)
-                                  ? prev[filter.id].filter((v) => v !== value)
-                                  : [...prev[filter.id], value]
-                                : [value],
-                            }));
+                            setSelectedValues((prev) => {
+                              const currentValues = prev[filter.id] || [];
+                              const newValues = currentValues.includes(value)
+                                ? currentValues.filter((v) => v !== value)
+                                : [...currentValues, value];
+                              return {
+                                ...prev,
+                                [filter.id]: newValues,
+                              };
+                            });
                           }}
                         />
                       ))}
@@ -333,4 +387,4 @@ const FilterMenu = ({
   );
 };
 
-export default FilterMenu;
+export default memo(FilterMenu);

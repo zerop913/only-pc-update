@@ -1,10 +1,11 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 const Logo = () => {
   return (
-    <div className="flex items-center">
+    <Link to="/" className="flex items-center">
       <img src="/logo.svg" alt="Logo" className="h-8 w-auto" />
-    </div>
+    </Link>
   );
 };
 

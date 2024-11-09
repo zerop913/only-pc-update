@@ -3,6 +3,12 @@ import { motion } from "framer-motion";
 import Button from "../UI/Button";
 
 const ProductCard = ({ product, isNew }) => {
+  const imageSrc = product.image_url
+    ? `/${product.image_url}`
+    : product.image
+      ? `/images/${product.image}`
+      : `/images/placeholder.png`;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -12,9 +18,16 @@ const ProductCard = ({ product, isNew }) => {
     >
       <div className="w-16 h-16 flex-shrink-0">
         <img
-          src={product.image_url}
+          src={imageSrc}
           alt={product.name}
           className="w-full h-full object-cover rounded-md"
+          onError={(e) => {
+            console.error(
+              `Ошибка загрузки изображения для ${product.name}:`,
+              e
+            );
+            e.target.src = "/images/placeholder.png";
+          }}
         />
       </div>
       <div>

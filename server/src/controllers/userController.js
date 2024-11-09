@@ -53,15 +53,35 @@ exports.getProfile = async (req, res) => {
   try {
     const userId = req.userData.userId;
 
-    const userInfo = await UserInfo.findOne({ where: { user_id: userId } });
+    // Получаем данные из обеих таблиц
+    const userData = await User.findOne({
+      where: { id: userId },
+      include: [
+        {
+          model: UserInfo,
+          attributes: [
+            "firstName",
+            "lastName",
+            "phone",
+            "email",
+            "dateOfBirth",
+          ],
+        },
+      ],
+      attributes: ["username"], // Добавляем username из таблицы users
+    });
 
-    if (!userInfo) {
-      return res
-        .status(404)
-        .json({ message: "Профиль пользователя не найден" });
+    if (!userData) {
+      return res.status(404).json({ message: "Пользователь не найден" });
     }
 
-    res.json(userInfo);
+    // Формируем объединенный ответ
+    const response = {
+      username: userData.username,
+      ...userData.UserInfo?.dataValues,
+    };
+
+    res.json(response);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Ошибка сервера при получении профиля" });

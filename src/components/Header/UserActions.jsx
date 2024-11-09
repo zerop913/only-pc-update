@@ -3,16 +3,24 @@ import {
   HeartIcon,
   ShoppingCartIcon,
   UserIcon,
+  ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import Button from "../Button/Button";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 
-const ActionButton = ({ icon: Icon, label, isMobile, isTablet }) => {
+const ActionButton = ({ icon: Icon, label, isMobile, isTablet, onClick }) => {
   if (isMobile) {
-    return <Button icon={Icon}>{label}</Button>;
+    return (
+      <Button icon={Icon} onClick={onClick}>
+        {label}
+      </Button>
+    );
   }
 
   return (
     <button
+      onClick={onClick}
       className={`flex flex-col items-center text-[#7D7D7D] hover:text-white transition-colors duration-200 ${
         isTablet ? "px-1" : ""
       }`}
@@ -26,6 +34,17 @@ const ActionButton = ({ icon: Icon, label, isMobile, isTablet }) => {
 };
 
 const UserActions = ({ isMobile, isTablet }) => {
+  const navigate = useNavigate();
+  const { isAuthenticated, displayName } = useAuth();
+
+  const handleAuthClick = () => {
+    if (isAuthenticated) {
+      navigate("/profile");
+    } else {
+      navigate("/auth");
+    }
+  };
+
   return (
     <div
       className={`flex ${
@@ -47,10 +66,11 @@ const UserActions = ({ isMobile, isTablet }) => {
         isTablet={isTablet}
       />
       <ActionButton
-        icon={UserIcon}
-        label="Профиль"
+        icon={isAuthenticated ? UserIcon : ArrowRightOnRectangleIcon}
+        label={isAuthenticated ? displayName || "Профиль" : "Войти"}
         isMobile={isMobile}
         isTablet={isTablet}
+        onClick={handleAuthClick}
       />
     </div>
   );

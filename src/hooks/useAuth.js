@@ -16,9 +16,16 @@ export const useAuth = () => {
     return profile.username ? `@${profile.username}` : "";
   };
 
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("sessionExpiration");
+    setIsAuthenticated(false);
+  };
+
   return {
     isAuthenticated,
     profile,
     displayName: getDisplayName(),
+    logout,
   };
 };

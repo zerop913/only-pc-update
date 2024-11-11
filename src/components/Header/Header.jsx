@@ -5,11 +5,15 @@ import SearchBar from "./SearchBar";
 import UserActions from "./UserActions";
 import MobileMenu from "./MobileMenu";
 import { Bars3Icon } from "@heroicons/react/24/outline";
+import { useAuth } from "../../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
+  const { isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleResize = () => {
@@ -27,11 +31,22 @@ const Header = () => {
       document.body.style.overflow = "unset";
     }
 
+    // Проверяем срок действия сессии пользователя
+    const sessionExpiration = localStorage.getItem("sessionExpiration");
+    if (
+      sessionExpiration &&
+      new Date().getTime() > parseInt(sessionExpiration)
+    ) {
+      // Сессия пользователя истекла, выходим из аккаунта
+      logout();
+      navigate("/auth");
+    }
+
     return () => {
       window.removeEventListener("resize", handleResize);
       document.body.style.overflow = "unset";
     };
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuOpen, logout, navigate]);
 
   return (
     <>

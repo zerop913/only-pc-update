@@ -35,11 +35,12 @@ const ActionButton = ({ icon: Icon, label, isMobile, isTablet, onClick }) => {
 
 const UserActions = ({ isMobile, isTablet }) => {
   const navigate = useNavigate();
-  const { isAuthenticated, displayName } = useAuth();
+  const { isAuthenticated, displayName, logout } = useAuth();
 
   const handleAuthClick = () => {
     if (isAuthenticated) {
-      navigate("/profile");
+      logout();
+      navigate("/auth");
     } else {
       navigate("/auth");
     }

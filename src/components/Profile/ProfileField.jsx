@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Pencil } from "lucide-react";
 
 const ProfileField = ({
@@ -6,17 +6,11 @@ const ProfileField = ({
   value,
   type = "text",
   isEditing,
+  isEditable,
   onEdit,
   onChange,
   error,
 }) => {
-  const [isFieldEditable, setIsFieldEditable] = useState(false);
-
-  const handleEditClick = () => {
-    setIsFieldEditable(true);
-    onEdit();
-  };
-
   return (
     <div
       className={`bg-[#1D1E2C] p-4 rounded-md relative ${error ? "border-2 border-red-500" : ""}`}
@@ -24,7 +18,7 @@ const ProfileField = ({
       <div className="flex justify-between items-start">
         <div className="flex-1">
           <p className="text-[#9D9EA6] text-sm mb-1">{label}</p>
-          {isEditing && isFieldEditable ? (
+          {isEditing && isEditable ? (
             <input
               type={type}
               value={value || ""}
@@ -35,9 +29,10 @@ const ProfileField = ({
             <p className="text-[#E0E1E6]">{value || "Не указано"}</p>
           )}
         </div>
-        {isEditing && !isFieldEditable && (
+        {isEditing && !isEditable && (
           <button
-            onClick={handleEditClick}
+            type="button"
+            onClick={onEdit}
             className="ml-2 p-1 hover:bg-[#2A2D3E] rounded-full transition-colors"
           >
             <Pencil size={16} className="text-[#9D9EA6]" />

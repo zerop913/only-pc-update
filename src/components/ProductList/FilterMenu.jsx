@@ -5,8 +5,9 @@ import {
   CheckIcon,
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
-import axios from "axios";
-import { API_URL } from "../../api";
+import { useDispatch } from "react-redux";
+import { useProducts } from "../../hooks/useProducts";
+import api from "../../redux/services/api";
 
 const FilterSection = memo(({ title, expanded, onToggle, children }) => {
   const sectionRef = useRef(null);
@@ -202,6 +203,8 @@ const FilterMenu = ({
   selectedSubcategory,
   onApplyFilters,
 }) => {
+  const dispatch = useDispatch();
+  const { fetchProducts } = useProducts();
   const [expandedSections, setExpandedSections] = useState({});
   const [selectedValues, setSelectedValues] = useState({});
   const [filters, setFilters] = useState([]);
@@ -227,15 +230,14 @@ const FilterMenu = ({
 
       setLoading(true);
       try {
-        const response = await axios.get(
-          `${API_URL}/categories/filter/${path}`,
-          { signal: abortController.signal }
-        );
+        const response = await api.get(`/categories/filter/${path}`, {
+          signal: abortController.signal,
+        });
         setFilters(response.data);
         setExpandedSections({ [response.data[0]?.id]: true });
         setError(null);
       } catch (err) {
-        if (!axios.isCancel(err)) {
+        if (!abortController.signal.aborted) {
           console.error("Ошибка при загрузке фильтров:", err);
           setError("Не удалось загрузить фильтры");
           setFilters([]);
@@ -262,12 +264,29 @@ const FilterMenu = ({
 
   const handleReset = useCallback(() => {
     setSelectedValues({});
+    // Используем fetchProducts из хука useProducts для сброса фильтров
+    fetchProducts({
+      categoryShortName: selectedCategory?.short_name,
+      childCategoryShortName: selectedSubcategory?.short_name,
+    });
     onApplyFilters?.({});
-  }, [onApplyFilters]);
+  }, [fetchProducts, selectedCategory, selectedSubcategory, onApplyFilters]);
 
   const handleApply = useCallback(() => {
+    // Используем fetchProducts из хука useProducts для применения фильтров
+    fetchProducts({
+      categoryShortName: selectedCategory?.short_name,
+      childCategoryShortName: selectedSubcategory?.short_name,
+      filters: selectedValues,
+    });
     onApplyFilters?.(selectedValues);
-  }, [onApplyFilters, selectedValues]);
+  }, [
+    fetchProducts,
+    selectedCategory,
+    selectedSubcategory,
+    selectedValues,
+    onApplyFilters,
+  ]);
 
   const getActiveFiltersCount = useCallback(() => {
     return Object.values(selectedValues).reduce((count, value) => {

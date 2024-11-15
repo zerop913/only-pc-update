@@ -1,19 +1,21 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { useDispatch, useSelector } from "react-redux";
 import FormField from "./FormField";
 import SimpleCaptcha from "./SimpleCaptcha";
 import { useNavigate } from "react-router-dom";
-import { register } from "../../api";
+import { register } from "../../redux/features/auth/authThunks";
 
 const RegisterForm = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector((state) => state.auth);
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
-  const [isLoading, setIsLoading] = useState(false);
   const [captchaPassed, setCaptchaPassed] = useState(false);
 
   const fields = [
@@ -38,19 +40,18 @@ const RegisterForm = () => {
       return;
     }
 
-    setIsLoading(true);
     try {
-      await register({
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-      });
+      await dispatch(
+        register({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+        })
+      ).unwrap();
       window.showNotification("Регистрация успешна!", "success");
       navigate("/auth");
     } catch (error) {
-      window.showNotification(error.message, "error");
-    } finally {
-      setIsLoading(false);
+      window.showNotification(error || "Ошибка при регистрации", "error");
     }
   };
 
@@ -92,7 +93,7 @@ const RegisterForm = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, [field.id]: e.target.value })
                 }
-                disabled={isLoading}
+                disabled={loading}
               />
             </motion.div>
           ))}
@@ -133,17 +134,17 @@ const RegisterForm = () => {
 
         <motion.button
           type="submit"
-          disabled={!captchaPassed || isLoading}
+          disabled={!captchaPassed || loading}
           variants={itemVariants}
-          whileHover={captchaPassed && !isLoading ? { scale: 1.02 } : {}}
-          whileTap={captchaPassed && !isLoading ? { scale: 0.98 } : {}}
+          whileHover={captchaPassed && !loading ? { scale: 1.02 } : {}}
+          whileTap={captchaPassed && !loading ? { scale: 0.98 } : {}}
           className={`${
-            captchaPassed && !isLoading
+            captchaPassed && !loading
               ? "bg-[#1D1E2C] text-[#9D9EA6] hover:bg-[#2A2D3E] hover:text-[#E0E1E6]"
               : "bg-[#1D1E2C] text-[#6D6E7A] cursor-not-allowed"
           } px-4 py-3 rounded-md transition-colors duration-200 text-lg font-medium`}
         >
-          {isLoading ? "Регистрация..." : "Зарегистрироваться"}
+          {loading ? "Регистрация..." : "Зарегистрироваться"}
         </motion.button>
       </form>
 

@@ -1,4 +1,3 @@
-// Categories.jsx
 import React, { useState, useRef, useEffect } from "react";
 import CategoryItem from "./CategoryItem";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";

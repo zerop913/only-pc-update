@@ -6,7 +6,7 @@ import {
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import FilterMenu from "./FilterMenu";
-import { fetchCategories } from "../../api";
+import { useCategories } from "../../hooks/useCategories";
 
 const ContextMenu = ({
   viewMode,
@@ -20,20 +20,9 @@ const ContextMenu = ({
   const dropdownRef = useRef(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
-  const [categories, setCategories] = useState([]);
 
-  // Загрузка категорий
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const data = await fetchCategories();
-        setCategories(data);
-      } catch (error) {
-        console.error("Error loading categories:", error);
-      }
-    };
-    loadCategories();
-  }, []);
+  // Используем хук для получения категорий из Redux
+  const { categories, loading, error } = useCategories();
 
   // Обновление выбранной категории при изменении categoryPath
   useEffect(() => {
@@ -60,6 +49,7 @@ const ContextMenu = ({
   }, [categoryPath, categories]);
 
   const toggleDropdown = () => setIsOpen(!isOpen);
+
   const toggleFilter = () => setIsFilterOpen(!isFilterOpen);
 
   const handleSortChange = (value) => {
@@ -82,7 +72,6 @@ const ContextMenu = ({
 
   const handleApplyFilters = (filters) => {
     console.log("Applied filters:", filters);
-    // Здесь добавьте логику применения фильтров
     setIsFilterOpen(false);
   };
 
@@ -90,6 +79,14 @@ const ContextMenu = ({
     { value: "name", label: "По названию" },
     { value: "price", label: "По цене" },
   ];
+
+  if (loading) {
+    return <div className="text-[#9D9EA6]">Загрузка...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500">Ошибка загрузки категорий</div>;
+  }
 
   return (
     <div className="space-y-4">

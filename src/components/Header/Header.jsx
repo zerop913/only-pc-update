@@ -24,29 +24,17 @@ const Header = () => {
     handleResize();
     window.addEventListener("resize", handleResize);
 
-    // Блокируем скролл при открытом меню
     if (isMobileMenuOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
     }
 
-    // Проверяем срок действия сессии пользователя
-    const sessionExpiration = localStorage.getItem("sessionExpiration");
-    if (
-      sessionExpiration &&
-      new Date().getTime() > parseInt(sessionExpiration)
-    ) {
-      // Сессия пользователя истекла, выходим из аккаунта
-      logout();
-      navigate("/auth");
-    }
-
     return () => {
       window.removeEventListener("resize", handleResize);
       document.body.style.overflow = "unset";
     };
-  }, [isMobileMenuOpen, logout, navigate]);
+  }, [isMobileMenuOpen]);
 
   return (
     <>

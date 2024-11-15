@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { User, UserInfo } = require("../models"); // Добавил импорт UserInfo
+const { User, UserInfo } = require("../models");
 const { validationResult } = require("express-validator");
 
 exports.register = async (req, res) => {

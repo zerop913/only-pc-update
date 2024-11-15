@@ -8,6 +8,7 @@ import {
 import Button from "../Button/Button";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { useProfile } from "../../hooks/useProfile";
 
 const ActionButton = ({ icon: Icon, label, isMobile, isTablet, onClick }) => {
   if (isMobile) {
@@ -35,13 +36,13 @@ const ActionButton = ({ icon: Icon, label, isMobile, isTablet, onClick }) => {
 
 const UserActions = ({ isMobile, isTablet }) => {
   const navigate = useNavigate();
-  const { isAuthenticated, displayName, logout } = useAuth();
+  const { isAuthenticated, logout, displayName } = useAuth();
 
-  const handleAuthClick = () => {
+  const handleAuthClick = async () => {
     if (isAuthenticated) {
-      logout();
-      navigate("/auth");
+      navigate("/profile");
     } else {
+      // await logout();
       navigate("/auth");
     }
   };

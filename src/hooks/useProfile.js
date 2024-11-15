@@ -1,33 +1,72 @@
-import { useState, useEffect, useCallback } from "react";
-import { getProfile } from "../api";
+import { useEffect, useCallback, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchProfile,
+  updateProfileField,
+  batchUpdateProfile,
+} from "../redux/features/profile/profileThunks";
 
 export const useProfile = () => {
-  const [profile, setProfile] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const dispatch = useDispatch();
+  const {
+    data: profile,
+    loading: isLoading,
+    error,
+    lastUpdated,
+  } = useSelector((state) => state.profile);
 
-  const fetchProfile = useCallback(async () => {
-    try {
-      const data = await getProfile();
-      setProfile(data);
-      return data;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const fetchInProgress = useRef(false);
 
-  // Функция для принудительного обновления профиля
-  const refetchProfile = useCallback(async () => {
-    setIsLoading(true);
-    return fetchProfile();
-  }, [fetchProfile]);
+  const fetchProfileData = useCallback(
+    async (force = false) => {
+      if (fetchInProgress.current && !force) return;
+
+      try {
+        fetchInProgress.current = true;
+        await dispatch(fetchProfile(force)).unwrap();
+      } catch (err) {
+        return null;
+      } finally {
+        fetchInProgress.current = false;
+      }
+    },
+    [dispatch]
+  );
+
+  const updateField = useCallback(
+    async (field, value) => {
+      try {
+        await dispatch(updateProfileField({ field, value })).unwrap();
+      } catch (err) {
+        return null;
+      }
+    },
+    [dispatch]
+  );
+
+  const batchUpdate = useCallback(
+    async (updates) => {
+      try {
+        await dispatch(batchUpdateProfile(updates)).unwrap();
+      } catch (err) {
+        return null;
+      }
+    },
+    [dispatch]
+  );
 
   useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+    if (!lastUpdated && !isLoading && !fetchInProgress.current) {
+      fetchProfileData();
+    }
+  }, [fetchProfileData, lastUpdated, isLoading]);
 
-  return { profile, isLoading, error, refetchProfile };
+  return {
+    profile,
+    isLoading,
+    error,
+    refetchProfile: fetchProfileData,
+    updateField,
+    batchUpdate,
+  };
 };

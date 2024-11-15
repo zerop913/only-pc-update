@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useCategories } from "../hooks/useCategories";
+import { useProducts } from "../hooks/useProducts";
 import Header from "../components/Header/Header";
 import Categories from "../components/Categories/Categories";
 import ProductList from "../components/ProductList/ProductList";
@@ -11,11 +13,12 @@ import ReplaceProductModal from "../components/Modal/ReplaceProductModal";
 import RemoveProductModal from "../components/Modal/RemoveProductModal";
 import ClearBuildModal from "../components/Modal/ClearBuildModal";
 import useSessionStorage from "../hooks/useSessionStorage";
-import { fetchCategories } from "../api";
 
 function Configurator() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [categories, setCategories] = useState([]);
+  // Получаем данные из Redux через хуки
+  const { categories, loading: categoriesLoading } = useCategories();
+  const { products, loading: productsLoading } = useProducts();
+
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [activeTab, setActiveTab] = useState("products");
@@ -28,60 +31,29 @@ function Configurator() {
   const { categoryShortName, subcategoryShortName } = useParams();
   const location = useLocation();
 
+  // Обработка начальных данных из URL и установка категорий
   useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true);
-      try {
-        const categoriesData = await fetchCategories();
-        setCategories(categoriesData);
-
-        if (categoryShortName) {
-          const category = categoriesData.find(
-            (c) => c.short_name === categoryShortName
-          );
-          if (category) {
-            setSelectedCategory(category);
-            if (subcategoryShortName) {
-              const subcategory = category.children?.find(
-                (sc) => sc.short_name === subcategoryShortName
-              );
-              if (subcategory) {
-                setSelectedSubcategory(subcategory);
-              }
+    if (!categoriesLoading && categories.length > 0) {
+      if (categoryShortName) {
+        const category = categories.find(
+          (c) => c.short_name === categoryShortName
+        );
+        if (category) {
+          setSelectedCategory(category);
+          if (subcategoryShortName) {
+            const subcategory = category.children?.find(
+              (sc) => sc.short_name === subcategoryShortName
+            );
+            if (subcategory) {
+              setSelectedSubcategory(subcategory);
             }
           }
         }
-      } catch (error) {
-        console.error("Ошибка при загрузке категорий:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (!isLoading && categories.length > 0) {
-      const category = categories.find(
-        (c) => c.short_name === categoryShortName
-      );
-      if (category) {
-        setSelectedCategory(category);
-        if (subcategoryShortName) {
-          const subcategory = category.children?.find(
-            (sc) => sc.short_name === subcategoryShortName
-          );
-          if (subcategory) {
-            setSelectedSubcategory(subcategory);
-          }
-        } else {
-          setSelectedSubcategory(null);
-        }
       }
     }
-  }, [categoryShortName, subcategoryShortName, categories, isLoading]);
+  }, [categoryShortName, subcategoryShortName, categories, categoriesLoading]);
 
+  // Остальные useEffect остаются без изменений
   useEffect(() => {
     const newTotalPrice = buildItems.reduce(
       (sum, item) => sum + (parseFloat(item.price) || 0),
@@ -91,13 +63,16 @@ function Configurator() {
   }, [buildItems]);
 
   useEffect(() => {
-    if (selectedSubcategory) {
-      document.title = `${selectedSubcategory.russian_name} | Конфигуратор | OnlyPC`;
-    } else if (selectedCategory) {
-      document.title = `${selectedCategory.russian_name} | Конфигуратор | OnlyPC`;
-    } else {
-      document.title = "Конфигуратор | OnlyPC";
-    }
+    const getTitle = () => {
+      if (selectedSubcategory && selectedCategory) {
+        return `${selectedSubcategory.russian_name} | ${selectedCategory.russian_name} | Конфигуратор | OnlyPC`;
+      } else if (selectedCategory) {
+        return `${selectedCategory.russian_name} | Конфигуратор | OnlyPC`;
+      }
+      return "Конфигуратор | OnlyPC";
+    };
+
+    document.title = getTitle();
   }, [selectedCategory, selectedSubcategory]);
 
   const handleAddToBuild = (product) => {
@@ -191,11 +166,38 @@ function Configurator() {
   };
 
   const handleCategorySelect = (category) => {
+    if (!category) return;
+
     setSelectedCategory(category);
     setSelectedSubcategory(null);
     setActiveTab("products");
     navigate(`/${category.short_name}#page=1`);
   };
+
+  // Добавляем проверки в useEffect
+  useEffect(() => {
+    if (!categoriesLoading && categories.length > 0) {
+      if (categoryShortName) {
+        const category = categories.find(
+          (c) => c.short_name === categoryShortName
+        );
+        if (category) {
+          setSelectedCategory(category);
+          if (subcategoryShortName && category.children) {
+            const subcategory = category.children.find(
+              (sc) => sc.short_name === subcategoryShortName
+            );
+            if (subcategory) {
+              setSelectedSubcategory(subcategory);
+            }
+          }
+        } else {
+          // Если категория не найдена, редиректим на главную
+          navigate("/");
+        }
+      }
+    }
+  }, [categoryShortName, subcategoryShortName, categories, categoriesLoading]);
 
   const handleSubcategorySelect = (subcategory) => {
     setSelectedSubcategory(subcategory);
@@ -215,7 +217,7 @@ function Configurator() {
           selectedCategory={selectedCategory}
           selectedSubcategory={selectedSubcategory}
           totalPrice={totalPrice}
-          isLoading={isLoading}
+          isLoading={categoriesLoading}
         />
       </div>
 
@@ -239,7 +241,7 @@ function Configurator() {
               setViewMode={setViewMode}
               buildItems={buildItems}
               onSubcategorySelect={handleSubcategorySelect}
-              isLoading={isLoading}
+              isLoading={productsLoading}
             />
           </div>
           <div

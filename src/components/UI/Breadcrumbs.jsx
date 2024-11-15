@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronRightIcon } from "@heroicons/react/24/solid";
+import { useCategories } from "../../hooks/useCategories";
 
 const Breadcrumbs = ({
   mainCategory,
@@ -12,10 +13,33 @@ const Breadcrumbs = ({
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { findCategoryByPath } = useCategories();
 
-  const getCurrentPage = () => {
-    const hash = location.hash;
-    return hash ? hash.replace("#page=", "") : "1";
+  const handleBreadcrumbClick = async (e, path) => {
+    e.preventDefault();
+
+    // Пропускаем обработку для главной страницы
+    if (path === "/") {
+      navigate(path);
+      return;
+    }
+
+    // Получаем путь категории без начального слеша
+    const categoryPath = path.slice(1);
+    const { mainCategory, subCategory } = findCategoryByPath(categoryPath);
+
+    if (!mainCategory) {
+      console.error("Категория не найдена");
+      return;
+    }
+
+    // Если есть обработчик onBreadcrumbClick, вызываем его
+    if (onBreadcrumbClick) {
+      await onBreadcrumbClick(e, path);
+    }
+
+    navigate(path);
   };
 
   const breadcrumbs = [{ name: "Главная", path: "/" }];
@@ -36,7 +60,9 @@ const Breadcrumbs = ({
     });
   }
 
-  breadcrumbs.push({ name: productName, path: null });
+  if (productName) {
+    breadcrumbs.push({ name: productName, path: null });
+  }
 
   useEffect(() => {
     const checkScroll = () => {
@@ -91,9 +117,7 @@ const Breadcrumbs = ({
               {crumb.path ? (
                 <Link
                   to={crumb.path}
-                  onClick={(e) =>
-                    crumb.path && onBreadcrumbClick(e, crumb.path)
-                  }
+                  onClick={(e) => handleBreadcrumbClick(e, crumb.path)}
                   className={`text-xs md:text-sm font-medium text-[#9D9EA6] hover:text-[#E0E1E6] transition-colors 
                   ${index === 0 ? "ps-4" : ""}`}
                 >

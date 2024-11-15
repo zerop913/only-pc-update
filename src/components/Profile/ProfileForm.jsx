@@ -1,38 +1,41 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useProfileState } from "./ProfileStateContext";
+import { useProfile } from "../../hooks/useProfile";
 import ProfileField from "./ProfileField";
-import { updateProfile } from "../../api";
+import { useProfileState } from "./ProfileStateContext";
+import { ArrowLeft } from "lucide-react";
 
-const ProfileForm = ({ initialData, onSuccess }) => {
-  const { setIsEditing, setProfileData } = useProfileState();
-  const [formData, setFormData] = useState(initialData || {});
+const ProfileForm = () => {
+  const { profile, isLoading, batchUpdate } = useProfile();
+  const { setIsEditing } = useProfileState();
+  const [formData, setFormData] = useState(profile || {});
   const [editableFields, setEditableFields] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
+    if (profile) {
+      setFormData(profile);
     }
-  }, [initialData]);
+  }, [profile]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
 
     try {
-      const updatedProfile = await updateProfile(formData);
-      window.showNotification("Профиль успешно обновлен", "success");
-      setProfileData(updatedProfile);
-      setIsEditing(false);
+      const updates = {};
+      Object.keys(editableFields).forEach((key) => {
+        if (formData[key] !== profile[key]) {
+          updates[key] = formData[key];
+        }
+      });
 
-      if (onSuccess) {
-        await onSuccess(); // Вызываем колбэк после успешного обновления
+      if (Object.keys(updates).length > 0) {
+        await batchUpdate(updates);
+        window.showNotification("Профиль успешно обновлен", "success");
+        setIsEditing(false);
       }
     } catch (error) {
-      window.showNotification(error.message, "error");
-    } finally {
-      setIsLoading(false);
+      window.showNotification("Ошибка при обновлении профиля", "error");
     }
   };
 
@@ -41,6 +44,24 @@ const ProfileForm = ({ initialData, onSuccess }) => {
       ...prev,
       [fieldId]: true,
     }));
+    setHasChanges(true);
+  };
+
+  const handleFieldChange = (fieldId, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [fieldId]: value,
+    }));
+  };
+
+  const handleCancel = () => {
+    const updatedFormData = { ...formData };
+    Object.keys(editableFields).forEach((key) => {
+      updatedFormData[key] = profile[key];
+    });
+    setFormData(updatedFormData);
+    setEditableFields({});
+    setHasChanges(false);
   };
 
   const fields = [
@@ -54,6 +75,19 @@ const ProfileForm = ({ initialData, onSuccess }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <motion.button
+          type="button"
+          onClick={() => setIsEditing(false)}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="flex items-center space-x-2 text-[#9D9EA6] hover:text-[#E0E1E6] transition-colors"
+        >
+          <ArrowLeft size={20} />
+          <span>Назад к профилю</span>
+        </motion.button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {fields.map((field) => (
           <ProfileField
@@ -62,11 +96,9 @@ const ProfileForm = ({ initialData, onSuccess }) => {
             value={formData[field.id]}
             type={field.type || "text"}
             isEditing={true}
-            onEdit={() => handleFieldEdit(field.id)}
-            onChange={(e) =>
-              setFormData({ ...formData, [field.id]: e.target.value })
-            }
             isEditable={editableFields[field.id]}
+            onEdit={() => handleFieldEdit(field.id)}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
             required={field.required}
           />
         ))}
@@ -75,11 +107,11 @@ const ProfileForm = ({ initialData, onSuccess }) => {
       <div className="flex space-x-4">
         <motion.button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || !hasChanges}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className={`bg-[#1D1E2C] text-[#9D9EA6] px-4 py-2 rounded-md hover:bg-[#2A2D3E] hover:text-[#E0E1E6] transition-colors duration-200 ${
-            isLoading ? "opacity-50 cursor-not-allowed" : ""
+            isLoading || !hasChanges ? "opacity-50 cursor-not-allowed" : ""
           }`}
         >
           {isLoading ? "Сохранение..." : "Сохранить"}
@@ -87,11 +119,13 @@ const ProfileForm = ({ initialData, onSuccess }) => {
 
         <motion.button
           type="button"
-          onClick={() => setIsEditing(false)}
-          disabled={isLoading}
+          onClick={handleCancel}
+          disabled={isLoading || !hasChanges}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="bg-[#1D1E2C] text-[#9D9EA6] px-4 py-2 rounded-md hover:bg-[#2A2D3E] hover:text-[#E0E1E6] transition-colors duration-200"
+          className={`bg-[#1D1E2C] text-[#9D9EA6] px-4 py-2 rounded-md hover:bg-[#2A2D3E] hover:text-[#E0E1E6] transition-colors duration-200 ${
+            isLoading || !hasChanges ? "opacity-50 cursor-not-allowed" : ""
+          }`}
         >
           Отмена
         </motion.button>

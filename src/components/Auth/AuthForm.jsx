@@ -1,41 +1,57 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useDispatch, useSelector } from "react-redux";
 import FormField from "./FormField";
 import { useNavigate } from "react-router-dom";
-import { login } from "../../api";
+import { login } from "../../redux/features/auth/authThunks";
+import api from "../../redux/services/api";
 
 const AuthForm = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading, isAuthenticated } = useSelector((state) => state.auth);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
-  const [isLoading, setIsLoading] = useState(false);
 
   const fields = [
     { id: "username", label: "Логин", type: "text" },
     { id: "password", label: "Пароль", type: "password" },
   ];
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/profile", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isSubmitting || loading) return;
+
     if (!formData.username || !formData.password) {
       window.showNotification("Заполните все поля", "error");
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
+
     try {
-      await login({
-        username: formData.username,
-        password: formData.password,
-      });
+      await dispatch(
+        login({
+          username: formData.username,
+          password: formData.password,
+        })
+      ).unwrap();
+
       window.showNotification("Успешная авторизация!", "success");
-      navigate("/profile");
     } catch (error) {
-      window.showNotification(error.message, "error");
+      window.showNotification(error || "Ошибка при входе", "error");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -77,7 +93,7 @@ const AuthForm = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, [field.id]: e.target.value })
                 }
-                disabled={isLoading}
+                disabled={loading || isSubmitting}
               />
             </motion.div>
           ))}
@@ -92,12 +108,12 @@ const AuthForm = () => {
             variants={itemVariants}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            disabled={isLoading}
+            disabled={loading || isSubmitting}
             className={`bg-[#1D1E2C] text-[#9D9EA6] px-4 py-3 rounded-md hover:bg-[#2A2D3E] hover:text-[#E0E1E6] transition-colors duration-200 text-lg font-medium ${
-              isLoading ? "opacity-50 cursor-not-allowed" : ""
+              loading || isSubmitting ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
-            {isLoading ? "Вход..." : "Войти"}
+            {loading || isSubmitting ? "Вход..." : "Войти"}
           </motion.button>
         </motion.div>
       </form>

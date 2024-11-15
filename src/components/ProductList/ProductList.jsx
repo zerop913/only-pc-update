@@ -1,12 +1,13 @@
 import React, {
   useState,
-  useEffect,
   useCallback,
   useMemo,
   useRef,
   useLayoutEffect,
+  useEffect,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useProducts } from "../../hooks/useProducts";
 import ContextMenu from "./ContextMenu";
 import ProductCard from "./ProductCard";
 import EmptyCategory from "./EmptyCategory";
@@ -14,7 +15,6 @@ import NoCategorySelected from "./NoCategorySelected";
 import SelectSubcategory from "./SelectSubcategory";
 import PageNotFound from "./PageNotFound";
 import ProductPage from "../../pages/ProductPage";
-import { fetchProducts, fetchProductBySlug } from "../../api";
 import { motion, AnimatePresence } from "framer-motion";
 
 const MemoizedProductCard = React.memo(ProductCard);
@@ -154,21 +154,28 @@ const ProductList = ({
   onSubcategorySelect,
 }) => {
   const [sortBy, setSortBy] = useState("name");
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductView, setIsProductView] = useState(false);
   const [pageMemory] = useState(new Map());
   const [isChangingPage, setIsChangingPage] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const location = useLocation();
   const navigate = useNavigate();
-  const abortControllerRef = useRef(null);
   const loadingRef = useRef(false);
-  const itemsPerPage = 50;
+  const retryCount = useRef(0);
+  const maxRetries = 3;
+
+  const {
+    products: items,
+    currentProduct: selectedProduct,
+    loading,
+    error,
+    totalPages,
+    currentPage,
+    fetchProducts: loadItems,
+    fetchProduct: loadProduct,
+  } = useProducts();
 
   const getCategoryPath = useCallback(() => {
     if (!selectedCategory) return "";
@@ -184,37 +191,96 @@ const ProductList = ({
       : selectedCategory.short_name;
   }, [selectedCategory, selectedSubcategory]);
 
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
+  // Функция для повторной попытки загрузки с задержкой
+  const retryLoadWithDelay = useCallback(async (retryFn, ...args) => {
+    if (retryCount.current >= maxRetries) {
+      setLoadError("Превышено количество попыток загрузки");
+      retryCount.current = 0;
+      return;
+    }
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, 1000 * (retryCount.current + 1))
+    );
+    retryCount.current++;
+    return retryFn(...args);
   }, []);
 
+  // Обработчик загрузки данных
+  const handleDataLoad = useCallback(
+    async (categoryShortName, childCategoryShortName, page) => {
+      if (loadingRef.current) return;
+
+      loadingRef.current = true;
+      setLoadError(null);
+
+      try {
+        await loadItems({
+          categoryShortName,
+          childCategoryShortName,
+          page,
+        });
+        retryCount.current = 0;
+      } catch (err) {
+        console.error("Error loading items:", err);
+        if (retryCount.current < maxRetries) {
+          return retryLoadWithDelay(
+            handleDataLoad,
+            categoryShortName,
+            childCategoryShortName,
+            page
+          );
+        }
+        setLoadError("Не удалось загрузить данные");
+      } finally {
+        loadingRef.current = false;
+      }
+    },
+    [loadItems, retryLoadWithDelay]
+  );
+
+  useEffect(() => {
+    if (isInitialLoad && selectedCategory) {
+      handleDataLoad(
+        selectedCategory.short_name,
+        selectedSubcategory?.short_name,
+        1
+      );
+      setIsInitialLoad(false);
+    }
+  }, [isInitialLoad, selectedCategory, selectedSubcategory, handleDataLoad]);
+
   useLayoutEffect(() => {
+    if (!selectedCategory) return;
+
     const hash = location.hash;
     const page = parseInt(hash.replace("#page=", ""), 10);
     const categoryKey = getCategoryKey();
 
     if (!isNaN(page) && page > 0) {
-      setCurrentPage(page);
+      handleDataLoad(
+        selectedCategory.short_name,
+        selectedSubcategory?.short_name,
+        page
+      );
     } else if (categoryKey) {
       const savedPage = pageMemory.get(categoryKey) || 1;
-      setCurrentPage(savedPage);
       navigate(`${location.pathname}#page=${savedPage}`, { replace: true });
+      handleDataLoad(
+        selectedCategory.short_name,
+        selectedSubcategory?.short_name,
+        savedPage
+      );
     }
-  }, [location.hash, getCategoryKey, navigate, pageMemory]);
-
-  const loadProduct = useCallback(async (categoryPath, slug) => {
-    try {
-      const product = await fetchProductBySlug(categoryPath, slug);
-      setSelectedProduct(product);
-      setIsProductView(true);
-    } catch (err) {
-      setError("Не удалось загрузить информацию о товаре");
-    }
-  }, []);
+  }, [
+    location.hash,
+    getCategoryKey,
+    navigate,
+    pageMemory,
+    selectedCategory,
+    selectedSubcategory,
+    handleDataLoad,
+  ]);
 
   const handleProductClick = useCallback(
     async (categoryPath, slug) => {
@@ -227,7 +293,8 @@ const ProductList = ({
       );
 
       navigate(`/products/${categoryPath}/${slug}`, { replace: true });
-      await loadProduct(categoryPath, slug);
+      await loadProduct({ categoryPath, slug });
+      setIsProductView(true);
     },
     [location.hash, navigate, loadProduct]
   );
@@ -236,7 +303,6 @@ const ProductList = ({
     (e, path) => {
       e.preventDefault();
       setIsProductView(false);
-      setSelectedProduct(null);
 
       const pathParts = path.split("/").filter(Boolean);
       const savedPage = pageMemory.get(pathParts.join("/")) || 1;
@@ -245,81 +311,8 @@ const ProductList = ({
     [navigate, pageMemory]
   );
 
-  const loadItems = useCallback(async () => {
-    if (!selectedCategory || loadingRef.current) return;
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    loadingRef.current = true;
-    setLoading(true);
-    setError(null);
-
-    try {
-      const categoryName = selectedCategory.short_name;
-      const subcategoryName = selectedSubcategory?.short_name;
-
-      const cacheKey = `${categoryName}${subcategoryName ? `/${subcategoryName}` : ""}_${currentPage}`;
-      const cachedData = sessionStorage.getItem(cacheKey);
-
-      if (cachedData) {
-        const parsedData = JSON.parse(cachedData);
-        setItems(parsedData.items);
-        setTotalPages(parsedData.totalPages);
-      } else {
-        const response = await fetchProducts(
-          categoryName,
-          subcategoryName,
-          currentPage,
-          itemsPerPage,
-          { signal: abortControllerRef.current.signal }
-        );
-
-        if (response.categories) {
-          setItems(response.categories);
-          setTotalPages(response.totalPages);
-          sessionStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-              items: response.categories,
-              totalPages: response.totalPages,
-            })
-          );
-        } else if (response.products) {
-          setItems(response.products);
-          setTotalPages(response.totalPages);
-          sessionStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-              items: response.products,
-              totalPages: response.totalPages,
-            })
-          );
-        } else {
-          setItems([]);
-          setTotalPages(1);
-        }
-      }
-    } catch (err) {
-      if (err.name === "AbortError") return;
-      setError(
-        "Произошла ошибка при загрузке данных. Пожалуйста, попробуйте позже."
-      );
-    } finally {
-      setLoading(false);
-      loadingRef.current = false;
-      setIsChangingPage(false);
-    }
-  }, [selectedCategory, selectedSubcategory, currentPage]);
-
-  useEffect(() => {
-    loadItems();
-  }, [loadItems]);
-
   const sortedItems = useMemo(() => {
-    if (!items.length) return [];
+    if (!items?.length) return [];
 
     return [...items].sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
@@ -341,6 +334,8 @@ const ProductList = ({
     return (
       <div className="text-white text-center mt-8">Загрузка элементов...</div>
     );
+  if (loadError)
+    return <div className="text-red-500 text-center mt-8">{loadError}</div>;
   if (error)
     return <div className="text-red-500 text-center mt-8">{error}</div>;
   if (isProductView && selectedProduct) {
@@ -375,7 +370,7 @@ const ProductList = ({
     );
   }
 
-  if (items.length === 0) return <EmptyCategory />;
+  if (!items?.length) return <EmptyCategory />;
 
   const pageVariants = {
     initial: { opacity: 0, y: 20 },
@@ -440,12 +435,16 @@ const ProductList = ({
             setIsChangingPage(true);
             const categoryKey = getCategoryKey();
             if (categoryKey) {
+              loadItems({
+                categoryShortName: selectedCategory.short_name,
+                childCategoryShortName: selectedSubcategory?.short_name,
+                page,
+              });
               const baseUrl = selectedSubcategory
                 ? `/${selectedCategory.short_name}/${selectedSubcategory.short_name}`
                 : `/${selectedCategory.short_name}`;
               navigate(`${baseUrl}#page=${page}`, { replace: true });
             }
-            setCurrentPage(page);
           }}
         />
       )}

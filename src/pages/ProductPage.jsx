@@ -1,25 +1,20 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
-import { fetchProductBySlug, fetchCategories } from "../api";
+import { useProducts } from "../hooks/useProducts";
+import { useCategories } from "../hooks/useCategories";
 import Header from "../components/Header/Header";
 import ProductInfo from "../components/Products/ProductInfo";
 import ProductCharacteristics from "../components/Products/ProductCharacteristics";
 import Breadcrumbs from "../components/UI/Breadcrumbs";
 import useSessionStorage from "../hooks/useSessionStorage";
 
-const ProductPage = ({
-  product: initialProduct,
-  categoryData: initialCategoryData,
-  onBreadcrumbClick,
-}) => {
+const ProductPage = () => {
   const { categories, childCategories, slug } = useParams();
   const navigate = useNavigate();
-  const [product, setProduct] = useState(initialProduct || null);
-  const [categoryData, setCategoryData] = useState(initialCategoryData || null);
-  const [loading, setLoading] = useState(!initialProduct);
-  const [error, setError] = useState(null);
+  const { currentProduct, loading, error, fetchProduct } = useProducts();
+  const { categories: categoriesData } = useCategories();
   const characteristicsRef = useRef(null);
   const [navigationInProgress, setNavigationInProgress] = useSessionStorage(
     "navigationInProgress",
@@ -32,40 +27,18 @@ const ProductPage = ({
   }, []);
 
   useEffect(() => {
-    const loadData = async () => {
-      if (initialProduct && initialCategoryData) return;
+    const loadProduct = async () => {
+      const categoryPath = childCategories
+        ? `${categories}/${childCategories}`
+        : categories;
 
-      try {
-        setLoading(true);
-        const [categoriesData, productData] = await Promise.all([
-          fetchCategories(),
-          fetchProductBySlug(
-            childCategories ? `${categories}/${childCategories}` : categories,
-            slug
-          ),
-        ]);
-
-        const mainCategory = categoriesData.find(
-          (cat) => cat.short_name === categories
-        );
-        let subCategory = null;
-        if (childCategories && mainCategory?.children) {
-          subCategory = mainCategory.children.find(
-            (child) => child.short_name === childCategories
-          );
-        }
-
-        setCategoryData({ mainCategory, subCategory });
-        setProduct(productData);
-      } catch (err) {
-        console.error("Ошибка при загрузке данных:", err);
-        setError("Ошибка при загрузке данных. Пожалуйста, попробуйте позже.");
-      } finally {
-        setLoading(false);
-      }
+      await fetchProduct({
+        categoryPath,
+        slug,
+      });
     };
 
-    loadData();
+    loadProduct();
 
     return () => {
       if (navigationTimeoutRef.current) {
@@ -77,8 +50,7 @@ const ProductPage = ({
     categories,
     childCategories,
     slug,
-    initialProduct,
-    initialCategoryData,
+    fetchProduct,
     setNavigationInProgress,
   ]);
 
@@ -114,7 +86,7 @@ const ProductPage = ({
     );
   }
 
-  if (error || !product || !categoryData) {
+  if (error || !currentProduct) {
     return (
       <>
         <Header />
@@ -136,7 +108,7 @@ const ProductPage = ({
     <>
       <Header />
       <Helmet>
-        <title>{product?.name || "Загрузка..."}</title>
+        <title>{currentProduct?.name || "Загрузка..."}</title>
       </Helmet>
 
       <motion.div
@@ -146,9 +118,9 @@ const ProductPage = ({
         transition={{ duration: 0.4 }}
       >
         <Breadcrumbs
-          mainCategory={categoryData.mainCategory}
-          subCategory={categoryData.subCategory}
-          productName={product.name}
+          mainCategory={currentProduct.category}
+          subCategory={currentProduct.subcategory}
+          productName={currentProduct.name}
           onBreadcrumbClick={handleBreadcrumbClick}
         />
 
@@ -159,7 +131,7 @@ const ProductPage = ({
             transition={{ delay: 0.2, duration: 0.4 }}
           >
             <ProductInfo
-              product={product}
+              product={currentProduct}
               onShowAllCharacteristics={scrollToCharacteristics}
             />
           </motion.div>
@@ -171,7 +143,7 @@ const ProductPage = ({
           >
             <ProductCharacteristics
               ref={characteristicsRef}
-              characteristics={product.characteristics}
+              characteristics={currentProduct.characteristics}
             />
           </motion.div>
         </div>

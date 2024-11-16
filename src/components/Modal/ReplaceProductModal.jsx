@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import Button from "../UI/Button";
+import { useCategories } from "../../hooks/useCategories";
 
 const ProductCard = ({ product, isNew }) => {
   const imageSrc = product.image_url
@@ -44,14 +45,35 @@ const ReplaceProductModal = ({
   onReplace,
   onCancel,
 }) => {
+  const { categories } = useCategories();
+
+  const findRussianCategoryName = (categorySlug) => {
+    for (const category of categories) {
+      if (category.short_name === categorySlug) {
+        return category.russian_name;
+      }
+      if (category.children) {
+        const subCategory = category.children.find(
+          (sub) => sub.short_name === categorySlug
+        );
+        if (subCategory) {
+          return subCategory.russian_name;
+        }
+      }
+    }
+    return categorySlug;
+  };
+
+  const categoryRussianName = findRussianCategoryName(existingProduct.category);
+
   return (
     <div className="space-y-4">
       <h2 className="text-[#E0E1E6] text-xl font-semibold">
         Заменить товар в сборке?
       </h2>
       <p className="text-[#9D9EA6]">
-        В вашей сборке уже есть товар из категории "{existingProduct.category}".
-        Вы уверены, что хотите заменить его на новый?
+        В вашей сборке уже есть товар из категории "{categoryRussianName}". Вы
+        уверены, что хотите заменить его на новый?
       </p>
       <div className="space-y-2">
         <h3 className="text-[#E0E1E6]">Текущий товар:</h3>

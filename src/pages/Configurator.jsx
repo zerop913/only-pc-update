@@ -15,7 +15,6 @@ import ClearBuildModal from "../components/Modal/ClearBuildModal";
 import useSessionStorage from "../hooks/useSessionStorage";
 
 function Configurator() {
-  // Получаем данные из Redux через хуки
   const { categories, loading: categoriesLoading } = useCategories();
   const { products, loading: productsLoading } = useProducts();
 
@@ -53,7 +52,6 @@ function Configurator() {
     }
   }, [categoryShortName, subcategoryShortName, categories, categoriesLoading]);
 
-  // Остальные useEffect остаются без изменений
   useEffect(() => {
     const newTotalPrice = buildItems.reduce(
       (sum, item) => sum + (parseFloat(item.price) || 0),
@@ -174,7 +172,6 @@ function Configurator() {
     navigate(`/${category.short_name}#page=1`);
   };
 
-  // Добавляем проверки в useEffect
   useEffect(() => {
     if (!categoriesLoading && categories.length > 0) {
       if (categoryShortName) {
@@ -192,7 +189,6 @@ function Configurator() {
             }
           }
         } else {
-          // Если категория не найдена, редиректим на главную
           navigate("/");
         }
       }

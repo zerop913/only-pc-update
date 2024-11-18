@@ -59,7 +59,7 @@ exports.login = async (req, res) => {
 
     const user = await User.findOne({
       where: { username },
-      include: [{ model: UserInfo }], // Добавляем связанные данные профиля
+      include: [{ model: UserInfo }],
     });
 
     if (!user) {

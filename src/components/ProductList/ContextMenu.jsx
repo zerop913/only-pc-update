@@ -21,7 +21,6 @@ const ContextMenu = ({
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
 
-  // Используем хук для получения категорий из Redux
   const { categories, loading, error } = useCategories();
 
   // Обновление выбранной категории при изменении categoryPath

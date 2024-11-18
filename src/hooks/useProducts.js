@@ -21,7 +21,6 @@ export const useProducts = () => {
       try {
         await dispatch(fetchProducts(params)).unwrap();
       } catch (err) {
-        // Ошибка уже обработана в slice
         return null;
       }
     },
@@ -33,7 +32,6 @@ export const useProducts = () => {
       try {
         await dispatch(fetchProductBySlug(params)).unwrap();
       } catch (err) {
-        // Ошибка уже обработана в slice
         return null;
       }
     },

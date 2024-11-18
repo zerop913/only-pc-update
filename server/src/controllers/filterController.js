@@ -118,7 +118,6 @@ exports.getCategoryFilters = async (req, res) => {
       }),
     }));
 
-    // Добавление фильтра по цене
     const priceRange = await Product.findAll({
       attributes: [
         [sequelize.fn("MIN", sequelize.col("price")), "minPrice"],

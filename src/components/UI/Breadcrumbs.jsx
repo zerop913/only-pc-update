@@ -19,7 +19,6 @@ const Breadcrumbs = ({
   const handleBreadcrumbClick = async (e, path) => {
     e.preventDefault();
 
-    // Пропускаем обработку для главной страницы
     if (path === "/") {
       navigate(path);
       return;
@@ -34,7 +33,6 @@ const Breadcrumbs = ({
       return;
     }
 
-    // Если есть обработчик onBreadcrumbClick, вызываем его
     if (onBreadcrumbClick) {
       await onBreadcrumbClick(e, path);
     }

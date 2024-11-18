@@ -7,5 +7,6 @@ export const ROUTES = {
   AUTH: "/auth",
   REGISTER: "/register",
   PROFILE: "/profile",
+  PROFILE_FAVORITES: "/profile/favorites",
   NOT_FOUND: "*",
 };

@@ -264,7 +264,6 @@ const FilterMenu = ({
 
   const handleReset = useCallback(() => {
     setSelectedValues({});
-    // Используем fetchProducts из хука useProducts для сброса фильтров
     fetchProducts({
       categoryShortName: selectedCategory?.short_name,
       childCategoryShortName: selectedSubcategory?.short_name,
@@ -273,7 +272,6 @@ const FilterMenu = ({
   }, [fetchProducts, selectedCategory, selectedSubcategory, onApplyFilters]);
 
   const handleApply = useCallback(() => {
-    // Используем fetchProducts из хука useProducts для применения фильтров
     fetchProducts({
       categoryShortName: selectedCategory?.short_name,
       childCategoryShortName: selectedSubcategory?.short_name,

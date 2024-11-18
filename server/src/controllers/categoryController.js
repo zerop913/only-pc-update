@@ -114,7 +114,6 @@ const categoryController = {
           currentPage: page,
         });
       } else {
-        // Существующая логика для товаров...
         const { count, rows: products } = await Product.findAndCountAll({
           where: { category_id: category.id },
           include: [

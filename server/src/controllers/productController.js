@@ -5,7 +5,6 @@ const {
   ProductCharacteristic,
 } = require("../models");
 
-// Добавляем обработчик ошибок
 const handleError = (error, operation) => {
   console.error(`Ошибка в ${operation}:`, {
     message: error.message,
@@ -13,7 +12,6 @@ const handleError = (error, operation) => {
     code: error.code,
   });
 
-  // Проверяем тип ошибки и возвращаем соответствующий статус
   if (error.name === "SequelizeConnectionError") {
     return {
       status: 503,

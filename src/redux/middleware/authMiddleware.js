@@ -11,12 +11,10 @@ class AuthManager {
 
   initializeAuth(store) {
     const token = this.getToken();
-    if (token && !this.isTokenExpired(token)) {
+    if (token) {
+      // Устанавливаем заголовок авторизации в любом случае при старте
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       store.dispatch(setAuthenticated(true));
-    } else if (token) {
-      this.clearToken();
-      store.dispatch(setAuthenticated(false));
     }
   }
 
@@ -27,11 +25,9 @@ class AuthManager {
   setToken(token) {
     if (token) {
       try {
-        if (!this.isTokenExpired(token)) {
-          localStorage.setItem("token", token);
-          api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-          return true;
-        }
+        localStorage.setItem("token", token);
+        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        return true;
       } catch (error) {
         this.clearToken();
       }
@@ -83,7 +79,8 @@ class AuthManager {
 
     try {
       const tokenData = JSON.parse(atob(token.split(".")[1]));
-      return tokenData.exp * 1000 <= Date.now();
+      // Добавляем 5-секундный буфер для предотвращения ложных срабатываний
+      return tokenData.exp * 1000 <= Date.now() - 5000;
     } catch (error) {
       return true;
     }
@@ -91,8 +88,7 @@ class AuthManager {
 
   async refreshTokenIfNeeded(store) {
     const token = this.getToken();
-    if (!token || this.isTokenExpired(token)) {
-      this.clearToken();
+    if (!token) {
       store.dispatch(setAuthenticated(false));
       return false;
     }
@@ -107,9 +103,13 @@ class AuthManager {
       }
       return true;
     } catch (error) {
-      this.clearToken();
-      store.dispatch(setAuthenticated(false));
-      return false;
+      // Не чистим токен при ошибке парсинга, только если явно истек
+      if (this.isTokenExpired(token)) {
+        this.clearToken();
+        store.dispatch(setAuthenticated(false));
+        return false;
+      }
+      return true;
     }
   }
 }

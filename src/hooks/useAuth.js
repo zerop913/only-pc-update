@@ -5,6 +5,7 @@ import { useProfile } from "./useProfile";
 import { authManager } from "../redux/middleware/authMiddleware";
 import { useNavigate } from "react-router-dom";
 import api from "../redux/services/api";
+import { setAuthenticated } from "../redux/features/auth/authSlice";
 
 export const useAuth = () => {
   const dispatch = useDispatch();
@@ -44,12 +45,18 @@ export const useAuth = () => {
 
   const handleLogout = async () => {
     try {
+      // Сначала меняем состояние в Redux
+      dispatch(setAuthenticated(false));
+
+      // Затем выполняем остальные действия
       await dispatch(logout());
       authManager.clearToken();
       delete api.defaults.headers.common["Authorization"];
       navigate("/auth", { replace: true });
     } catch (error) {
       console.error("Ошибка при выходе:", error);
+      // Даже при ошибке меняем состояние
+      dispatch(setAuthenticated(false));
       authManager.clearToken();
       delete api.defaults.headers.common["Authorization"];
       navigate("/auth", { replace: true });

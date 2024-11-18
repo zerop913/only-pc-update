@@ -1,18 +1,18 @@
 export const CONFIG = {
   CACHE: {
-    MAX_SIZE: 500, // Увеличиваем размер кеша
+    MAX_SIZE: 500,
     TTL: 30 * 60 * 1000, // 30 минут
     STALE_TTL: 60 * 60 * 1000, // 1 час для устаревших данных
   },
   RATE_LIMIT: {
-    MAX_REQUESTS: 20, // Увеличиваем максимальное количество запросов
+    MAX_REQUESTS: 20,
     TIME_WINDOW: 60000, // 1 минута
-    BURST_LIMIT: 30, // Увеличиваем лимит для пакетных запросов
+    BURST_LIMIT: 30,
     MIN_BACKOFF: 500,
     MAX_BACKOFF: 5000,
   },
   REQUEST: {
-    TIMEOUT: 15000, // Уменьшаем timeout до 15 секунд
+    TIMEOUT: 15000,
     MAX_RETRIES: 2,
     MAX_REDIRECTS: 5,
     MAX_CONTENT_LENGTH: 50 * 1024 * 1024,
@@ -20,7 +20,7 @@ export const CONFIG = {
   PRIORITIES: {
     AUTH: 3,
     PROFILE: 2.5,
-    CATEGORIES: 3, // Повышаем приоритет категорий
+    CATEGORIES: 3,
     PRODUCTS: 2,
     DEFAULT: 1,
   },
@@ -30,7 +30,7 @@ export const CONFIG = {
     AUTH_QUEUE_TIMEOUT: 10000,
     AUTH_RATE_LIMIT: {
       MAX_REQUESTS: 5,
-      TIME_WINDOW: 60 * 1000, // 1 минута
+      TIME_WINDOW: 60 * 1000,
     },
   },
   PROFILE: {

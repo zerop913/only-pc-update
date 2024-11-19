@@ -9,6 +9,7 @@ module.exports = (sequelize, DataTypes) => {
         through: models.ProductCharacteristic,
         foreignKey: "product_id",
       });
+      Product.hasMany(models.Favorite, { foreignKey: "product_id" });
     }
   }
   Product.init(

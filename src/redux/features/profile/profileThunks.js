@@ -2,31 +2,62 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api";
 import { CONFIG } from "../../config";
 
-let profileRequest = null;
+const PROFILE_FETCH_COOLDOWN = 30000;
+let lastProfileFetchTimestamp = 0;
+let activeProfileRequest = null;
 
 export const fetchProfile = createAsyncThunk(
   "profile/fetchProfile",
   async (forceFetch = false, { rejectWithValue, getState }) => {
+    const currentTime = Date.now();
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      return rejectWithValue("Не авторизован");
+    }
+
+    const state = getState();
+    const lastUpdated = state.profile.lastUpdated;
+
+    const shouldSkipFetch =
+      !forceFetch &&
+      lastUpdated &&
+      currentTime - lastUpdated < PROFILE_FETCH_COOLDOWN;
+
+    if (shouldSkipFetch) {
+      return state.profile.data;
+    }
+
+    if (
+      !forceFetch &&
+      currentTime - lastProfileFetchTimestamp < PROFILE_FETCH_COOLDOWN
+    ) {
+      return null;
+    }
+
+    if (activeProfileRequest) {
+      return activeProfileRequest;
+    }
+
+    lastProfileFetchTimestamp = currentTime;
+
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        return rejectWithValue("Не авторизован");
-      }
+      activeProfileRequest = api
+        .get("/auth/profile", {
+          timeout: CONFIG.REQUEST.TIMEOUT,
+          retry: CONFIG.REQUEST.MAX_RETRIES,
+        })
+        .then((response) => {
+          activeProfileRequest = null;
+          return response.data;
+        })
+        .catch((error) => {
+          activeProfileRequest = null;
+          throw error;
+        });
 
-      // Предотвращаем множественные запросы
-      if (profileRequest) {
-        return profileRequest;
-      }
-
-      // Создаем новый запрос
-      profileRequest = api.get("/auth/profile").then((response) => {
-        profileRequest = null;
-        return response.data;
-      });
-
-      return await profileRequest;
+      return await activeProfileRequest;
     } catch (error) {
-      profileRequest = null;
       if (error.response?.status === 401) {
         localStorage.removeItem("token");
         return rejectWithValue("Сессия истекла");
@@ -38,17 +69,16 @@ export const fetchProfile = createAsyncThunk(
   },
   {
     condition: (forceFetch, { getState }) => {
-      if (forceFetch) return true;
-
       const token = localStorage.getItem("token");
       if (!token) return false;
 
       const { profile } = getState();
       if (profile.loading) return false;
 
-      const lastUpdated = profile.lastUpdated;
       return (
-        !lastUpdated || Date.now() - lastUpdated >= CONFIG.PROFILE.CACHE_TTL
+        forceFetch ||
+        !profile.lastUpdated ||
+        Date.now() - profile.lastUpdated >= PROFILE_FETCH_COOLDOWN
       );
     },
   }
@@ -86,7 +116,6 @@ export const batchUpdateProfile = createAsyncThunk(
   async (updates, { dispatch }) => {
     try {
       const result = await dispatch(updateProfile(updates)).unwrap();
-      // Сразу обновляем данные профиля после успешного сохранения
       await dispatch(fetchProfile(true));
       return result;
     } catch (error) {

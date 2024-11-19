@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useProfile } from "../../hooks/useProfile";
 import ProfileField from "./ProfileField";
 import { useProfileState } from "./ProfileStateContext";
@@ -74,8 +74,20 @@ const ProfileForm = () => {
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
+    <motion.form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+    >
+      <motion.div
+        className="flex items-center justify-between mb-6"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+      >
         <motion.button
           type="button"
           onClick={() => setIsEditing(false)}
@@ -86,25 +98,40 @@ const ProfileForm = () => {
           <ArrowLeft size={20} />
           <span>Назад к профилю</span>
         </motion.button>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {fields.map((field) => (
-          <ProfileField
-            key={field.id}
-            label={field.label}
-            value={formData[field.id]}
-            type={field.type || "text"}
-            isEditing={true}
-            isEditable={editableFields[field.id]}
-            onEdit={() => handleFieldEdit(field.id)}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
-            required={field.required}
-          />
-        ))}
+        <AnimatePresence>
+          {fields.map((field) => (
+            <motion.div
+              key={field.id}
+              layout
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ProfileField
+                label={field.label}
+                value={formData[field.id]}
+                type={field.type || "text"}
+                isEditing={true}
+                isEditable={editableFields[field.id]}
+                onEdit={() => handleFieldEdit(field.id)}
+                onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                required={field.required}
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
-      <div className="flex space-x-4">
+      <motion.div
+        className="flex space-x-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+      >
         <motion.button
           type="submit"
           disabled={isLoading || !hasChanges}
@@ -129,8 +156,8 @@ const ProfileForm = () => {
         >
           Отмена
         </motion.button>
-      </div>
-    </form>
+      </motion.div>
+    </motion.form>
   );
 };
 

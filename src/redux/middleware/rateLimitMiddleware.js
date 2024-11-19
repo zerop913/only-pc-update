@@ -22,18 +22,25 @@ class RateLimiter {
     this.cleanupOldRequests();
     const now = Date.now();
 
+    const MAX_REQUESTS = isAuth
+      ? CONFIG.AUTH.AUTH_RATE_LIMIT.MAX_REQUESTS
+      : key.includes("favorites")
+        ? 200
+        : CONFIG.RATE_LIMIT.MAX_REQUESTS;
+
+    const TIME_WINDOW = isAuth
+      ? CONFIG.AUTH.AUTH_RATE_LIMIT.TIME_WINDOW
+      : CONFIG.RATE_LIMIT.TIME_WINDOW;
+
     if (isAuth) {
       const authTimestamps = this.authAttempts.get(key) || [];
       const validAuthTimestamps = authTimestamps.filter(
-        (time) => now - time < CONFIG.AUTH.AUTH_RATE_LIMIT.TIME_WINDOW
+        (time) => now - time < TIME_WINDOW
       );
 
-      if (
-        validAuthTimestamps.length >= CONFIG.AUTH.AUTH_RATE_LIMIT.MAX_REQUESTS
-      ) {
+      if (validAuthTimestamps.length >= MAX_REQUESTS) {
         const waitTime = Math.max(
-          CONFIG.AUTH.AUTH_RATE_LIMIT.TIME_WINDOW -
-            (now - validAuthTimestamps[0]),
+          TIME_WINDOW - (now - validAuthTimestamps[0]),
           this.backoffTime
         );
         await this.queueRequest(key, priority, waitTime);
@@ -47,12 +54,12 @@ class RateLimiter {
 
     const timestamps = this.requests.get(key) || [];
     const validTimestamps = timestamps.filter(
-      (time) => now - time < CONFIG.RATE_LIMIT.TIME_WINDOW
+      (time) => now - time < TIME_WINDOW
     );
 
-    if (validTimestamps.length >= CONFIG.RATE_LIMIT.MAX_REQUESTS) {
+    if (validTimestamps.length >= MAX_REQUESTS) {
       const waitTime = Math.max(
-        CONFIG.RATE_LIMIT.TIME_WINDOW - (now - validTimestamps[0]),
+        TIME_WINDOW - (now - validTimestamps[0]),
         this.backoffTime
       );
       await this.queueRequest(key, priority, waitTime);

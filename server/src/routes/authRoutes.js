@@ -28,6 +28,8 @@ router.post(
   authController.login
 );
 
+router.post("/logout", auth, authController.logout);
+
 router.post("/profile", auth, userController.createProfile);
 router.put("/profile", auth, userController.updateProfile);
 router.get("/profile", auth, userController.getProfile);

@@ -1,9 +1,11 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header/Header";
 import ProfileContent from "../components/Profile/ProfileContent";
 import Notification from "../components/UI/Notification";
+import Modal from "../components/UI/Modal";
+import LogoutModal from "../components/Modal/LogoutModal";
 import { LogOut } from "lucide-react";
 import { useProfile } from "../hooks/useProfile";
 import { useAuth } from "../hooks/useAuth";
@@ -13,6 +15,7 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const { profile, isLoading, error, refetchProfile } = useProfile();
   const { isAuthenticated, checkAuth } = useAuth();
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const initProfile = useCallback(async () => {
     const isAuthed = await checkAuth();
@@ -74,17 +77,17 @@ const ProfilePage = () => {
               Профиль пользователя
             </h1>
             <motion.button
-              onClick={handleLogout}
+              onClick={() => setIsLogoutModalOpen(true)}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[#9D9EA6]  hover:text-[#E0E1E6] transition-colors duration-200"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[#9D9EA6] hover:text-[#E0E1E6] transition-colors duration-200"
             >
               <LogOut size={18} />
               <span>Выйти</span>
             </motion.button>
           </div>
 
-          <div className="bg-[#12131E] rounded-xl p-8 border border-[#1F1E24]">
+          <div className="bg-[#12131E] rounded-xl p-8 border border-[#1F1E24] overflow-hidden">
             <ProfileStateProvider>
               <ProfileContent
                 profile={profile}
@@ -96,6 +99,16 @@ const ProfilePage = () => {
           </div>
         </div>
       </motion.div>
+
+      <Modal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+      >
+        <LogoutModal
+          onLogout={handleLogout}
+          onCancel={() => setIsLogoutModalOpen(false)}
+        />
+      </Modal>
     </div>
   );
 };

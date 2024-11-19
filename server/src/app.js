@@ -3,6 +3,7 @@ const cors = require("cors");
 const categoryRoutes = require("./routes/categoryRoutes");
 const productRoutes = require("./routes/productRoutes");
 const authRoutes = require("./routes/authRoutes");
+const favoriteRoutes = require("./routes/favoriteRoutes");
 const { sequelize } = require("./models");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
@@ -30,6 +31,7 @@ app.use(limiter);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/favorites", favoriteRoutes);
 
 sequelize
   .authenticate()

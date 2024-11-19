@@ -8,6 +8,7 @@ import {
 import { useDispatch } from "react-redux";
 import { useProducts } from "../../hooks/useProducts";
 import api from "../../redux/services/api";
+import { debounce } from "lodash";
 
 const FilterSection = memo(({ title, expanded, onToggle, children }) => {
   const sectionRef = useRef(null);
@@ -221,7 +222,8 @@ const FilterMenu = ({
   useEffect(() => {
     const abortController = new AbortController();
 
-    const fetchFilters = async () => {
+    // Debounce функция
+    const debouncedFetchFilters = debounce(async () => {
       const path = categoryPath();
       if (!path) {
         setFilters([]);
@@ -245,13 +247,13 @@ const FilterMenu = ({
       } finally {
         setLoading(false);
       }
-    };
+    }, 300);
 
-    fetchFilters();
-    setSelectedValues({});
+    debouncedFetchFilters();
 
     return () => {
       abortController.abort();
+      debouncedFetchFilters.cancel();
     };
   }, [categoryPath]);
 

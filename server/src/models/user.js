@@ -40,6 +40,7 @@ module.exports = (sequelize) => {
 
   User.associate = function (models) {
     User.hasOne(models.UserInfo, { foreignKey: "user_id" });
+    User.hasMany(models.Favorite, { foreignKey: "user_id" });
   };
 
   return User;

@@ -79,8 +79,14 @@ class AuthManager {
 
     try {
       const tokenData = JSON.parse(atob(token.split(".")[1]));
-      // Добавляем 5-секундный буфер для предотвращения ложных срабатываний
-      return tokenData.exp * 1000 <= Date.now() - 5000;
+
+      if (!tokenData.exp || !tokenData.sub) {
+        return true;
+      }
+
+      const isValidFormat = token.split(".").length === 3;
+
+      return tokenData.exp * 1000 <= Date.now() - 5000 || !isValidFormat;
     } catch (error) {
       return true;
     }
@@ -103,7 +109,6 @@ class AuthManager {
       }
       return true;
     } catch (error) {
-      // Не чистим токен при ошибке парсинга, только если явно истек
       if (this.isTokenExpired(token)) {
         this.clearToken();
         store.dispatch(setAuthenticated(false));

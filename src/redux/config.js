@@ -5,11 +5,11 @@ export const CONFIG = {
     STALE_TTL: 60 * 60 * 1000, // 1 час для устаревших данных
   },
   RATE_LIMIT: {
-    MAX_REQUESTS: 20,
-    TIME_WINDOW: 60000, // 1 минута
-    BURST_LIMIT: 30,
-    MIN_BACKOFF: 500,
-    MAX_BACKOFF: 5000,
+    MAX_REQUESTS: 30,
+    TIME_WINDOW: 60000,
+    BURST_LIMIT: 45,
+    MIN_BACKOFF: 300, // время ожидания
+    MAX_BACKOFF: 3000, // максимальное время ожидания
   },
   REQUEST: {
     TIMEOUT: 15000,

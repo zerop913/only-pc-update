@@ -7,6 +7,7 @@ import { authReducer } from "./features/auth/authSlice";
 import { categoriesReducer } from "./features/categories/categoriesSlice";
 import { productsReducer } from "./features/products/productsSlice";
 import { profileReducer } from "./features/profile/profileSlice";
+import { favoritesReducer } from "./features/favorites/favoritesSlice";
 
 const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ const store = configureStore({
     categories: categoriesReducer,
     products: productsReducer,
     profile: profileReducer,
+    favorites: favoritesReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat([

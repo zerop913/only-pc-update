@@ -88,7 +88,7 @@ class CacheManager {
 
   async getOrSet(key, fetchFn, priority = CONFIG.PRIORITIES.DEFAULT) {
     // Проверяем наличие данных в кеше
-    const cachedData = this.get(key);
+    const cachedData = this.get(key, key.includes("favorites"));
     if (cachedData) return cachedData;
 
     // Проверяем, нет ли уже выполняющегося запроса
@@ -99,7 +99,12 @@ class CacheManager {
     // Создаем новый запрос
     const request = fetchFn()
       .then((data) => {
-        this.set(key, data, priority);
+        // Для избранного используем более длительное кэширование
+        const effectivePriority = key.includes("favorites")
+          ? CONFIG.PRIORITIES.PROFILE
+          : priority;
+
+        this.set(key, data, effectivePriority);
         this.pendingRequests.delete(key);
         return data;
       })

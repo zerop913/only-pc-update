@@ -93,3 +93,12 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Ошибка сервера при входе" });
   }
 };
+
+exports.logout = async (req, res) => {
+  try {
+    res.status(200).json({ message: "Выход из системы выполнен успешно" });
+  } catch (error) {
+    console.error("Ошибка при выходе:", error);
+    res.status(500).json({ message: "Ошибка сервера при выходе" });
+  }
+};

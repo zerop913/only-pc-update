@@ -128,6 +128,7 @@ const ContextMenu = ({
         <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
           <button
             onClick={() => setViewMode("list")}
+            data-testid="list-view-button"
             className={`p-2 rounded-md ${
               viewMode === "list"
                 ? "bg-[#2A2D3E] text-[#E0E1E6]"
@@ -138,6 +139,7 @@ const ContextMenu = ({
           </button>
           <button
             onClick={() => setViewMode("grid")}
+            data-testid="grid-view-button"
             className={`p-2 rounded-md ${
               viewMode === "grid"
                 ? "bg-[#2A2D3E] text-[#E0E1E6]"
@@ -148,6 +150,7 @@ const ContextMenu = ({
           </button>
           <button
             onClick={toggleFilter}
+            data-testid="filter-button"
             className={`p-2 rounded-md ${
               isFilterOpen
                 ? "bg-[#2A2D3E] text-[#E0E1E6]"

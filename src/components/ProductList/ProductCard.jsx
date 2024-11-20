@@ -7,6 +7,7 @@ import {
 import Button from "../UI/Button";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import FavoriteButton from "../UI/FavoriteButton";
 
 const ProductCard = ({
   item,
@@ -131,15 +132,9 @@ const ProductCard = ({
                       disabled={isInBuild}
                       hideTooltipOnMobile
                     />
-                    <Button
-                      icon={HeartIcon}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      tooltip="Добавить в избранное"
-                      variant="secondary"
-                      hideTooltipOnMobile
+                    <FavoriteButton
+                      productId={item.id}
+                      className="focus:outline-none"
                     />
                   </>
                 )}
@@ -187,15 +182,9 @@ const ProductCard = ({
                       disabled={isInBuild}
                       hideTooltipOnMobile
                     />
-                    <Button
-                      icon={HeartIcon}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      tooltip="Добавить в избранное"
-                      variant="secondary"
-                      hideTooltipOnMobile
+                    <FavoriteButton
+                      productId={item.id}
+                      className="focus:outline-none"
                     />
                   </>
                 )}

@@ -37,13 +37,27 @@ export const removeFromFavorites = createAsyncThunk(
 
 export const fetchFavorites = createAsyncThunk(
   "favorites/fetchFavorites",
-  async ({ page = 1, limit = 10 } = {}, { rejectWithValue }) => {
+  async (
+    { page = 1, limit = 100, forceFetch = false } = {},
+    { rejectWithValue, getState }
+  ) => {
     const cacheKey = `favorites_${page}_${limit}`;
+
+    // Проверяем состояние, как в profileThunks
+    const state = getState();
+    const lastUpdated = state.favorites.lastUpdated;
+
+    const shouldSkipFetch =
+      !forceFetch && lastUpdated && Date.now() - lastUpdated < CONFIG.CACHE.TTL;
+
+    if (shouldSkipFetch) {
+      return state.favorites.items;
+    }
 
     try {
       // Проверяем кеш
       const cachedData = cacheManager.get(cacheKey);
-      if (cachedData) {
+      if (cachedData && !forceFetch) {
         return cachedData;
       }
 

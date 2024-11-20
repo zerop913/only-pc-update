@@ -11,18 +11,22 @@ exports.register = async (req, res) => {
 
     const { username, password, email } = req.body;
 
-    // Проверяем существование пользователя до создания
-    const existingUser = await User.findOne({ where: { username } });
-    if (existingUser) {
+    const existingUsername = await User.findOne({ where: { username } });
+    if (existingUsername) {
       return res
         .status(400)
         .json({ message: "Пользователь с таким именем уже существует" });
     }
 
-    // Создаем пользователя
+    const existingEmail = await UserInfo.findOne({ where: { email } });
+    if (existingEmail) {
+      return res
+        .status(400)
+        .json({ message: "Пользователь с таким email уже существует" });
+    }
+
     const user = await User.create({ username, password });
 
-    // Создаем профиль пользователя с корректными данными
     await UserInfo.create({
       user_id: user.id,
       email: email,

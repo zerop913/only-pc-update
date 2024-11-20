@@ -12,16 +12,26 @@ const CategoryItem = ({
   const [svgContent, setSvgContent] = useState("");
 
   useEffect(() => {
-    fetch(`/${icon}`)
-      .then((response) => response.text())
-      .then((data) => {
+    const loadSvg = async () => {
+      try {
+        const response = await fetch(`/${icon}`);
+        const data = await response.text();
         const cleanedSvg = data.replace(/fill="[^"]*"/g, "");
         setSvgContent(cleanedSvg);
-      });
+      } catch (error) {
+        // Добавляем заглушку для тестов
+        setSvgContent("<svg></svg>");
+      }
+    };
+
+    if (icon) {
+      loadSvg();
+    }
   }, [icon]);
 
   return (
     <div
+      data-testid="category-item"
       className={`rounded-lg p-3 flex flex-col items-center justify-center transition-all duration-300 cursor-pointer relative group
         ${
           isSelected

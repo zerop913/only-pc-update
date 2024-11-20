@@ -1,9 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { HeartIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { HeartIcon, PlusIcon } from "@heroicons/react/24/outline";
 import Button from "../UI/Button";
 import { useFavorites } from "../../hooks/useFavorites";
+// import FavoriteButton from "../UI/FavoriteButton";
 
 const ProfileFavorites = ({ favorites, loading }) => {
   const { toggleFavorite } = useFavorites();
@@ -25,7 +26,7 @@ const ProfileFavorites = ({ favorites, loading }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4">
+    <div className="grid grid-cols-1 gap-4 overflow-y-auto max-h-[calc(100vh-400px)] pr-2 -mr-2">
       {favorites.map((item) => (
         <Link
           key={item.id}
@@ -70,16 +71,7 @@ const ProfileFavorites = ({ favorites, loading }) => {
                     variant="secondary"
                     hideTooltipOnMobile
                   />
-                  <Button
-                    icon={HeartIcon}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleFavorite(item.id);
-                    }}
-                    variant="secondary"
-                    hideTooltipOnMobile
-                  />
+                  {/* <FavoriteButton productId={item.id} /> */}
                 </div>
               </div>
             </div>

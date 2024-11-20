@@ -10,7 +10,7 @@ export const login = createAsyncThunk(
       const { token } = response.data;
 
       if (!token) {
-        throw new Error("Токен не получен");
+        return rejectWithValue("Токен не получен");
       }
 
       localStorage.setItem("token", token);
@@ -21,7 +21,6 @@ export const login = createAsyncThunk(
       localStorage.removeItem("token");
       delete api.defaults.headers.common["Authorization"];
 
-      // Добавляем проверку на ошибку rate limit
       if (error.response?.status === 429) {
         return rejectWithValue(
           "Слишком много попыток входа. Пожалуйста, подождите немного и попробуйте снова."
@@ -29,7 +28,7 @@ export const login = createAsyncThunk(
       }
 
       return rejectWithValue(
-        error.response?.data?.message || "Ошибка при входе"
+        error.response?.data?.message || "Неверный логин или пароль"
       );
     }
   },

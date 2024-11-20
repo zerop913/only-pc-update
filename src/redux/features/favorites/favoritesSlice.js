@@ -23,11 +23,12 @@ const favoritesSlice = createSlice({
     clearFavoritesError: (state) => {
       state.error = null;
     },
-    resetFavorites: (state) => {
+    resetFavoritesState: (state) => {
       state.items = [];
       state.favoriteProductIds = [];
       state.totalPages = 1;
       state.currentPage = 1;
+      state.lastUpdated = null;
     },
   },
   extraReducers: (builder) => {
@@ -77,6 +78,7 @@ const favoritesSlice = createSlice({
         state.items = action.payload.products || action.payload;
         state.totalPages = action.payload.totalPages || 1;
         state.currentPage = action.payload.currentPage || 1;
+        state.lastUpdated = Date.now();
       })
       .addCase(fetchFavorites.rejected, (state, action) => {
         state.loading = false;

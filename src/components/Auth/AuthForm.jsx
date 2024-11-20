@@ -4,7 +4,6 @@ import { useDispatch, useSelector } from "react-redux";
 import FormField from "./FormField";
 import { useNavigate } from "react-router-dom";
 import { login } from "../../redux/features/auth/authThunks";
-import api from "../../redux/services/api";
 
 const AuthForm = () => {
   const navigate = useNavigate();
@@ -32,8 +31,13 @@ const AuthForm = () => {
 
     if (isSubmitting || loading) return;
 
-    if (!formData.username || !formData.password) {
-      window.showNotification("Заполните все поля", "error");
+    if (!formData.username) {
+      window.showNotification("Введите логин", "error");
+      return;
+    }
+
+    if (!formData.password) {
+      window.showNotification("Введите пароль", "error");
       return;
     }
 
@@ -47,9 +51,9 @@ const AuthForm = () => {
         })
       ).unwrap();
 
-      window.showNotification("Успешная авторизация!", "success");
+      window.showNotification("Вход выполнен успешно", "success");
     } catch (error) {
-      window.showNotification(error || "Ошибка при входе", "error");
+      window.showNotification(error, "error");
     } finally {
       setIsSubmitting(false);
     }

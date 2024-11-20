@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useProducts } from "../../hooks/useProducts";
+import { useFavorites } from "../../hooks/useFavorites";
 import ContextMenu from "./ContextMenu";
 import ProductCard from "./ProductCard";
 import EmptyCategory from "./EmptyCategory";
@@ -159,6 +160,7 @@ const ProductList = ({
   const [isChangingPage, setIsChangingPage] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const { checkProductsFavoriteStatus } = useFavorites();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -191,7 +193,6 @@ const ProductList = ({
       : selectedCategory.short_name;
   }, [selectedCategory, selectedSubcategory]);
 
-  // Функция для повторной попытки загрузки с задержкой
   const retryLoadWithDelay = useCallback(async (retryFn, ...args) => {
     if (retryCount.current >= maxRetries) {
       setLoadError("Превышено количество попыток загрузки");
@@ -206,7 +207,6 @@ const ProductList = ({
     return retryFn(...args);
   }, []);
 
-  // Обработчик загрузки данных
   const handleDataLoad = useCallback(
     async (categoryShortName, childCategoryShortName, page) => {
       if (loadingRef.current) return;
@@ -249,6 +249,13 @@ const ProductList = ({
       setIsInitialLoad(false);
     }
   }, [isInitialLoad, selectedCategory, selectedSubcategory, handleDataLoad]);
+
+  useEffect(() => {
+    if (items?.length > 0) {
+      const currentPageProductIds = items.map((item) => item.id);
+      checkProductsFavoriteStatus(currentPageProductIds);
+    }
+  }, [items, checkProductsFavoriteStatus]);
 
   useLayoutEffect(() => {
     if (!selectedCategory) return;

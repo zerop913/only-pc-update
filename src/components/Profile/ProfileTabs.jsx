@@ -133,7 +133,7 @@ const ProfileTabs = ({ profile, fieldGroups }) => {
               y: { type: "spring", stiffness: 300, damping: 30 },
               opacity: { duration: 0.2 },
             }}
-            className="absolute w-full"
+            className="absolute w-full overflow-y-auto max-h-[600px] pr-4 scrollbar-thin scrollbar-thumb-[#2A2D3E] scrollbar-track-[#1D1E2C]"
           >
             {tabs[activeTab].component}
           </motion.div>
